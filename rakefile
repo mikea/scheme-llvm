@@ -1,0 +1,5 @@
+task :test do
+  sh "csi -b parser-lib-tests.scm"
+end
+
+task :default => :test
