@@ -55,3 +55,18 @@
 	    (test '("123" . 3) ((while-char digit?) "123" 0))
 	    (test #f ((while-char digit?) "abc" 0))
 )
+
+(test-group "choice"
+	    (test '("123" . 3) ((choice (while-char digit?)
+			      (char "a")) "123abc" 0))
+	    (test '("a" . 1) ((choice (while-char digit?)
+			      (char "a")) "abc123" 0))
+	    (test #f ((choice (while-char digit?)
+			      (char "a")) "xabc123" 0))
+)
+
+(test-group "matches"
+	    (test '("123" . 3) ((matches "123") "123abc" 0))
+	    (test #f ((matches "123") "abc123" 0))
+	    (test #f ((matches "1234") "123" 0))
+)

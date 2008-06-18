@@ -2,7 +2,7 @@
 
 (module parser-lib
 	(any-char char seq parse-one parser nop
-		  while-char digit?)
+		  while-char digit? choice matches)
 
 ;; The module defines haskell-style parser combinators.
 ;;
@@ -76,7 +76,30 @@
     ((parser ((return e))) (lambda (s p) (cons e p)))
 ))
 
-;; TBD: (matches "token"),  (while), (choice)
+;; TBD: (matches "token")
+
+;; Tries to parse by each of the parsers consequently. 
+;; Returns the result of first successful one.
+(define (choice . parsers)
+  (lambda (s i)
+    (let loop ((p parsers))
+      (if (pair? p)
+	  (let ((r ((car p) s i)))
+	    (if r
+		r
+		(loop (cdr p))))
+	  #f))))
+
+;; Tries to match a specified string
+(define (matches m)
+  (lambda (s i)
+    (let ((n (string-length m)))
+      (if (and (<= (+ i n) (string-length s))
+               (string=? m (substring s i (+ i n))))
+          (cons m (+ i n))
+          #f))))
+
+
 
 ;; Some useful predicates
 
