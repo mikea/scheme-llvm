@@ -20,12 +20,26 @@
 	    (test #f ((char "b") "abc" 3))
 	    )
 
+(test-group "if-char"
+	    (test '("a" . 1) ((if-char letter?) "abc" 0))
+	    (test #f ((if-char digit?) "abc" 0))
+	    (test #f ((if-char letter?) "abc" 3))
+	    )
+
 (test-group "seq"
 	    (test '(("a" "b") . 2) ((seq (any-char) (any-char)) "abc" 0))
 	    (test #f ((seq (any-char) (any-char)) "abc" 2))
 	    (test '(("a" "b") . 2) ((seq (char "a") (char "b")) "abc" 0))
 	    (test #f ((seq (char "b") (char "b")) "abc" 0))
 	    (test #f ((seq (char "a") (char "c")) "abc" 0)) 
+	    )
+
+(test-group "str-seq"
+	    (test '("ab" . 2) ((str-seq (any-char) (any-char)) "abc" 0))
+	    (test #f ((str-seq (any-char) (any-char)) "abc" 2))
+	    (test '("ab" . 2) ((str-seq (char "a") (char "b")) "abc" 0))
+	    (test #f ((str-seq (char "b") (char "b")) "abc" 0))
+	    (test #f ((str-seq (char "a") (char "c")) "abc" 0)) 
 	    )
 
 (test-group "parser"
@@ -70,3 +84,5 @@
 	    (test #f ((matches "123") "abc123" 0))
 	    (test #f ((matches "1234") "123" 0))
 )
+
+(test-exit)

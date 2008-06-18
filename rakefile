@@ -1,5 +1,6 @@
 task :test do
   sh "csi -b parser-lib-tests.scm"
+  sh "csi -b scheme-parser-tests.scm"
 end
 
 task :default => :test

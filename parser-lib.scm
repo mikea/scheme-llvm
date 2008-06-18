@@ -2,7 +2,8 @@
 
 (module parser-lib
 	(any-char char seq parse-one parser nop
-		  while-char digit? choice matches)
+		  while-char digit? letter? choice matches
+		  if-char str-seq)
 
 ;; The module defines haskell-style parser combinators.
 ;;
@@ -37,6 +38,14 @@
       )
     ))
 
+;; Create a parser which accepts a char if predicate is true on it
+(define (if-char predicate)
+  (lambda (s i)
+    (let ((len (string-length s)))
+	(if (and (< i len) (predicate (string-ref s i)))
+	    (cons (substring s i (+ i 1)) (+ i 1))
+	    #f))))
+
 ;; Create a parser which accepts all chars while predicate is true
 (define (while-char predicate)
   (lambda (s p)
@@ -58,6 +67,18 @@
 		#f))
 	  #f)
       )))
+
+(define (str-seq . parsers)
+  (lambda (s i)
+    (let loop ((pos i) (pp parsers) (result ""))
+      (if (pair? pp)
+	  (let ((r ((car pp) s pos)))
+	    (if r
+		(loop (cdr r) (cdr pp) (string-append result (car r)))
+		#f))
+	  (if (> (string-length result) 0)
+	      (cons result pos)
+	      #f)))))
 
 (define-syntax parser
   (syntax-rules ()
@@ -106,4 +127,6 @@
 (define (digit? c)
   (and (char<=? #\0 c) (char>=? #\9 c)))
 
+(define (letter? c)
+  (and (char<=? #\a c) (char>=? #\z c)))
 )
