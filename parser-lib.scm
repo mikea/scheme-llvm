@@ -19,6 +19,7 @@
     (cons #t p)))
 
 ;; Create a parser which accepts any char
+;; TODO: should return a character not string
 (define any-char 
   (lambda (s p)
     (if (< p (string-length s))
@@ -27,6 +28,7 @@
 	#f)))
 
 ;; Create a parser which accepts a given char
+;; TODO: should accept char type and return char type
 (define (char c)
   (lambda (s p)
     (let ((r (any-char s p)))
@@ -51,7 +53,7 @@
 	(if (< j len)
 	    (let ((r (parser s j)))
 	      (if r
-		  (loop (+ j 1) (append result (list (car r))))
+		  (loop (cdr r) (append result (list (car r))))
 		  (cons result j)))
 	    (cons result j))))))
 		  
@@ -97,7 +99,18 @@
 (define-syntax parser
   (syntax-rules ()
     ((parser ()) (lambda (s p) (cons #t p)))
-    ((parser ((v <- head-parser) . tail)) 
+    ((parser ((v <- head-parser) . tail))
+     (lambda (s p) 
+       (let* ((head-result (head-parser s p)))
+	 (if head-result
+	     (let* ((v (car head-result))
+		    (tail-parser (parser tail))
+		    (head-pos (cdr head-result))
+		    (tail-result (tail-parser s head-pos)))
+	       (cons (car tail-result) (cdr tail-result)))
+	     #f))
+     ))
+    ((parser ((head-parser) . tail)) 
      (lambda (s p) 
        (let* ((head-result (head-parser s p)))
 	 (if head-result

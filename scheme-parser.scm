@@ -33,6 +33,13 @@
       (digit? c)
       (special-subsequent? c)))
 
+(define (whitespace? c)
+  (or (char=? #\space c)
+      (char=? #\newline c)))
+
+(define (!whitespace? c)
+  (not (whitespace? c)))
+
 (define peculiar-identifier
   (choice (matches "+")
 	  (matches "-")
@@ -43,3 +50,18 @@
 		  (str-seq (if-char initial?) (while-char subsequent?))
 		  peculiar-identifier))
 	   (return (cons 'id i)))))
+
+(define string-element
+  (choice (if-char (lambda (c) 
+		     (not (or (char=? #\" c) (char=? #\\ c)))))
+	  (parser (((matches "\\\""))
+		   (return "\"")))
+	  (parser (((matches "\\\\"))
+		   (return "\\")))))
+
+(define string
+  (parser (((matches "\""))
+	   (s <- (while string-element))
+	   ((matches "\""))
+	   (return (cons 'string (apply string-append s))))))
+	   

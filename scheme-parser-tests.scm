@@ -14,4 +14,11 @@
 	    (test #f (identifier "34abc" 0))
 )
 
+(test-group "string"
+	    (test '((string . "abc") . 5) (string "\"abc\"" 0))
+	    (test '((string . "a\"c") . 6) (string "\"a\\\"c\"" 0))
+	    (test '((string . "a\\c") . 6) (string "\"a\\\\c\"" 0))
+	    (test #f (string "34abc" 0))
+)
+
 (test-exit)
