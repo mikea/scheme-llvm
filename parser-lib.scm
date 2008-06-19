@@ -1,10 +1,3 @@
-(require-extension syntax-case)
-
-(module parser-lib
-	(any-char char seq parse-one parser nop
-		  while-char digit? letter? choice matches
-		  if-char str-seq)
-
 ;; The module defines haskell-style parser combinators.
 ;;
 ;; A parser is a function of two arguments:
@@ -14,14 +7,19 @@
 ;;   - #f if parsing was not successful
 ;;   - a pair (parsing_result . new_starting_offset)
 
-(define (parse-one f s p) ((f) s p))
+(require-extension syntax-case)
 
-(define (nop)
+(module parser-lib
+	(any-char char seq parser nop
+		  while-char while1-char digit? letter? choice matches
+		  if-char str-seq while while1)
+
+(define nop
   (lambda (s p)
     (cons #t p)))
 
 ;; Create a parser which accepts any char
-(define (any-char) 
+(define any-char 
   (lambda (s p)
     (if (< p (string-length s))
 	(cons (substring s p (+ p 1)) 
@@ -31,7 +29,7 @@
 ;; Create a parser which accepts a given char
 (define (char c)
   (lambda (s p)
-    (let ((r ((any-char) s p)))
+    (let ((r (any-char s p)))
       (if (and r (equal? (car r) c))
 	  r
 	  #f)
@@ -41,44 +39,60 @@
 ;; Create a parser which accepts a char if predicate is true on it
 (define (if-char predicate)
   (lambda (s i)
-    (let ((len (string-length s)))
-	(if (and (< i len) (predicate (string-ref s i)))
-	    (cons (substring s i (+ i 1)) (+ i 1))
+    (let ((r (any-char s i)))
+	(if (and r (predicate (string-ref (car r) 0)))
+	    r
 	    #f))))
 
-;; Create a parser which accepts all chars while predicate is true
-(define (while-char predicate)
-  (lambda (s p)
-    (let ((len (string-length s)))
-      (let loop ((i p))
-	(if (and (< i len) (predicate (string-ref s i)))
-	    (loop (+ i 1))
-	    (if (eq? p i)
-		#f
-		(cons (substring s p i) i)))))))
-
-(define (seq p1 p2)
-  (lambda (s p)
-    (let ((r1 (p1 s p)))
-      (if r1
-	  (let ((r2 (p2 s (cdr r1))))
-	    (if r2
-		(cons (list (car r1) (car r2)) (cdr r2))
-		#f))
-	  #f)
-      )))
-
-(define (str-seq . parsers)
+(define (while parser)
   (lambda (s i)
-    (let loop ((pos i) (pp parsers) (result ""))
+    (let ((len (string-length s)))
+      (let loop ((j i)  (result ()))
+	(if (< j len)
+	    (let ((r (parser s j)))
+	      (if r
+		  (loop (+ j 1) (append result (list (car r))))
+		  (cons result j)))
+	    (cons result j))))))
+		  
+;; The same as while, but succeeds only if parser matched at least 1 times
+(define (while1 parser)
+  (lambda (s i)
+    (let ((r ((while parser) s i)))
+      (if (and r (> (length (car r)) 0))
+	  r
+	  #f))))
+
+;; Create a parser which accepts all chars while predicate is true. 
+;; The result is the substring which matched.
+(define (while-char predicate)
+  (parser ((r <- (while (if-char predicate)))
+	   (return (apply string-append r)))))
+
+;; Create a parser which accepts all chars while predicate is true. 
+;; The result is the substring which matched.
+(define (while1-char predicate)
+  (parser ((r <- (while1 (if-char predicate)))
+	   (return (apply string-append r)))))
+
+
+;; A parser, which calls all passed parsers consequently. The result of
+;; the successful parse is the list of parsers results.
+(define (seq . parsers)
+  (lambda (s i)
+    (let loop ((pos i) (pp parsers) (result ()))
       (if (pair? pp)
 	  (let ((r ((car pp) s pos)))
 	    (if r
-		(loop (cdr r) (cdr pp) (string-append result (car r)))
+		(loop (cdr r) (cdr pp) (append result (list (car r))))
 		#f))
-	  (if (> (string-length result) 0)
-	      (cons result pos)
-	      #f)))))
+	  (cons result pos)))))
+
+;; Calls parsers consequently, requires all parsers to return strings.
+;; The result of this parser is concatenated string of all parsers results.
+(define (str-seq . parsers)
+  (parser ((r <- (apply seq parsers))
+	   (return (apply string-append r)))))
 
 (define-syntax parser
   (syntax-rules ()
