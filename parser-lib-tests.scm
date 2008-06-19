@@ -85,29 +85,29 @@
 )
 
 (test-group "parser-macro"
-	    (test '(#t . 1) (let ((p (parser ((c1 <- any-char)))))
+	    (test '(#t . 1) (let ((p (parser c1 <- any-char)))
 			    (p "abc" 0)))
-	    (test '(#t . 2) (let ((p (parser ((c1 <- any-char) 
-					      (c2 <- any-char)))))
+	    (test '(#t . 2) (let ((p (parser c1 <- any-char
+					     c2 <- any-char)))
 			      (p "abc" 0)))
-	    (test '(#t . 2) (let ((p (parser ((c1 <- (char "a")) 
-					      (c2 <- any-char)))))
-			      (p "abc" 0)))
-	    (test #f (let ((p (parser ((c1 <- (char "a")) 
-				       (c2 <- any-char)))))
-		       (p "dabc" 0)))
-	    (test '("ab" . 2) (let ((p (parser ((c1 <- any-char) 
-						(c2 <- any-char)
-						(return (string-append c1 c2))))))
-				(p "abc" 0)))
-	    (test '("b" . 2) (let ((p (parser ((any-char) 
-					       (c <- any-char)
-					       (return c)))))
-				(p "abc" 0)))
-	    (test '("c" . 3) (let ((p (parser (((matches "ab")) 
-					       (c <- any-char)
-					       (return c)))))
-				(p "abc" 0)))
+ 	    (test '(#t . 2) (let ((p (parser c1 <- (char "a")
+ 					     c2 <- any-char)))
+ 			      (p "abc" 0)))
+ 	    (test #f (let ((p (parser c1 <- (char "a")
+ 				      c2 <- any-char)))
+ 		       (p "dabc" 0)))
+ 	    (test '("ab" . 2) (let ((p (parser c1 <- any-char
+ 					       c2 <- any-char
+ 					       return (string-append c1 c2))))
+ 				(p "abc" 0)))
+  	    (test '("b" . 2) (let ((p (parser any-char
+  					      c <- any-char
+  					      return c)))
+			       (p "abc" 0)))
+   	    (test '("c" . 3) (let ((p (parser (matches "ab")
+   					      c <- any-char
+   					      return c)))
+			       (p "abc" 0)))
 )
 
 (test-exit)

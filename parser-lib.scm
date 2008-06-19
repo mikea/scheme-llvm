@@ -68,14 +68,14 @@
 ;; Create a parser which accepts all chars while predicate is true. 
 ;; The result is the substring which matched.
 (define (while-char predicate)
-  (parser ((r <- (while (if-char predicate)))
-	   (return (apply string-append r)))))
+  (parser r <- (while (if-char predicate))
+	  return (apply string-append r)))
 
 ;; Create a parser which accepts all chars while predicate is true. 
 ;; The result is the substring which matched.
 (define (while1-char predicate)
-  (parser ((r <- (while1 (if-char predicate)))
-	   (return (apply string-append r)))))
+  (parser r <- (while1 (if-char predicate))
+	  return (apply string-append r)))
 
 
 ;; A parser, which calls all passed parsers consequently. The result of
@@ -93,35 +93,33 @@
 ;; Calls parsers consequently, requires all parsers to return strings.
 ;; The result of this parser is concatenated string of all parsers results.
 (define (str-seq . parsers)
-  (parser ((r <- (apply seq parsers))
-	   (return (apply string-append r)))))
+  (parser r <- (apply seq parsers)
+	  return (apply string-append r)))
 
 (define-syntax parser
-  (syntax-rules ()
-    ((parser ()) (lambda (s p) (cons #t p)))
-    ((parser ((v <- head-parser) . tail))
+  (syntax-rules (<-)
+    ((parser) (lambda (s p) (cons #t p)))
+    ((parser v <- head-parser . tail)
      (lambda (s p) 
        (let* ((head-result (head-parser s p)))
 	 (if head-result
 	     (let* ((v (car head-result))
-		    (tail-parser (parser tail))
+		    (tail-parser (parser . tail))
 		    (head-pos (cdr head-result))
 		    (tail-result (tail-parser s head-pos)))
 	       (cons (car tail-result) (cdr tail-result)))
-	     #f))
-     ))
-    ((parser ((head-parser) . tail)) 
-     (lambda (s p) 
-       (let* ((head-result (head-parser s p)))
-	 (if head-result
-	     (let* ((v (car head-result))
-		    (tail-parser (parser tail))
-		    (head-pos (cdr head-result))
-		    (tail-result (tail-parser s head-pos)))
-	       (cons (car tail-result) (cdr tail-result)))
-	     #f))
-     ))
-    ((parser ((return e))) (lambda (s p) (cons e p)))
+	     #f))))
+    ((parser return e) (lambda (s p) (cons e p)))
+     ((parser head-parser . tail) 
+      (lambda (s p) 
+        (let* ((head-result (head-parser s p)))
+ 	 (if head-result
+  	     (let* ((v (car head-result))
+  		    (tail-parser (parser . tail))
+  		    (head-pos (cdr head-result))
+  		    (tail-result (tail-parser s head-pos)))
+  	       (cons (car tail-result) (cdr tail-result)))
+  	     #f))))
 ))
 
 ;; TBD: (matches "token")

@@ -46,22 +46,21 @@
 	  (matches "...")))
 
 (define identifier
-  (parser ((i <- (choice 
-		  (str-seq (if-char initial?) (while-char subsequent?))
-		  peculiar-identifier))
-	   (return (cons 'id i)))))
+  (parser i <- (choice (str-seq (if-char initial?) (while-char subsequent?))
+		       peculiar-identifier)
+	  return (cons 'id i)))
 
 (define string-element
   (choice (if-char (lambda (c) 
 		     (not (or (char=? #\" c) (char=? #\\ c)))))
-	  (parser (((matches "\\\""))
-		   (return "\"")))
-	  (parser (((matches "\\\\"))
-		   (return "\\")))))
+	  (parser (matches "\\\"")
+		  return "\"")
+	  (parser (matches "\\\\")
+		  return "\\")))
 
 (define string
-  (parser (((matches "\""))
-	   (s <- (while string-element))
-	   ((matches "\""))
-	   (return (cons 'string (apply string-append s))))))
+  (parser (matches "\"")
+	  s <- (while string-element)
+	  (matches "\"")
+	  return (cons 'string (apply string-append s))))
 	   
