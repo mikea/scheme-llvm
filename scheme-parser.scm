@@ -63,4 +63,79 @@
 	  s <- (while string-element)
 	  (matches "\"")
 	  return (cons 'string (apply string-append s))))
-	   
+
+(define boolean fail) ;; TODO
+(define number fail) ;; TODO
+(define character fail) ;; TODO
+
+;; External representations
+(define symbol identifier)
+
+(define simple-datum
+  (choice boolean
+	  number
+	  character
+	  string
+	  symbol))
+
+(define compound-datum fail) ;; TODO
+
+(define datum 
+  (choice simple-datum
+	  compound-datum))
+
+;; Expressions
+
+(define quotation
+  (choice (parser (matches "'")
+		  d <- datum
+		  return (cons 'quote d))
+	  (seq (matches "(quote")
+	       datum
+	       (matches ")"))))
+(define self-evaluating
+  (choice boolean
+	  number
+	  character
+	  string))
+
+(define literal
+  (parser l <- (choice quotation self-evaluating)
+	  return (cons 'literal l)))
+
+(define variable fail) ;; TODO
+(define procedure-call fail) ;; TODO
+(define lambda-expression fail) ;; TODO
+(define conditional fail) ;; TODO
+(define assignment fail) ;; TODO
+(define derived-expression fail) ;; TODO
+(define macro-use fail) ;; TODO
+(define macro-block fail) ;; TODO
+
+(define expression
+  (choice variable
+	  literal
+	  procedure-call
+	  lambda-expression
+	  conditional
+	  assignment
+	  derived-expression
+	  macro-use
+	  macro-block))
+
+(define command expression)
+
+;; Programs and definitions
+(define definition fail) ;; TODO
+(define syntax-definition fail) ;; TODO
+
+;; (define command-or-definition
+;;   (choice command
+;; 	  definition
+;; 	  syntax-definition
+;; 	  (seq (matches "(begin")
+;; 	       (while1 command-or-definition)
+;; 	       (matches ")"))))
+
+;; (define program
+;;   (while command-or-definition))

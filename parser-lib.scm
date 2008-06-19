@@ -10,13 +10,17 @@
 (require-extension syntax-case)
 
 (module parser-lib
-	(any-char char seq parser nop
+	(any-char char seq parser nop fail
 		  while-char while1-char digit? letter? choice matches
 		  if-char str-seq while while1)
 
 (define nop
   (lambda (s p)
     (cons #t p)))
+
+(define fail
+  (lambda (s p)
+    #f))
 
 ;; Create a parser which accepts any char
 ;; TODO: should return a character not string

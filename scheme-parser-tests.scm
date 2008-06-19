@@ -21,4 +21,9 @@
 	    (test #f (string "34abc" 0))
 )
 
+(test-group "literal"
+	    (test '((literal string . "abc") . 5) (literal "\"abc\"" 0))
+	    (test '((literal quote id . "abc") . 4) (literal "'abc" 0))
+)
+
 (test-exit)
