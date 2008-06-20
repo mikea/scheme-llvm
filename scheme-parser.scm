@@ -65,7 +65,8 @@
 	  (token "...")))
 
 (define identifier
-  (parser i <- (choice (str-seq (if-char initial?) (while-char subsequent?))
+  (parser i <- (choice (str-seq (if-char initial?) 
+				(while-char subsequent?))
 		       peculiar-identifier)
 	  return (cons 'id i)))
 
@@ -112,10 +113,10 @@
 (define (decimal r)
   (case r
     ((10) (choice (seq (uinteger 10) suffix)
-		  (seq (token ".") (while1 (digit 10)) (while-char hash?) suffix)
-		  (seq (while1 (digit 10)) (token ".") (while (digit 10)) 
+		  (seq (matches ".") (while1 (digit 10)) (while-char hash?) suffix)
+		  (seq (while1 (digit 10)) (matches ".") (while (digit 10)) 
 		       (while-char hash?) suffix)
-		  (seq (while1 (digit 10)) (while1-char hash?) (token ".")
+		  (seq (while1 (digit 10)) (while1-char hash?) (matches ".")
 		       (while-char hash?) suffix)))
     (else fail)))
 
@@ -177,7 +178,7 @@
 (define (num r) 
   (parser p <- (prefix r)
 	  n <- (complex r)
-	  return (cons 'number ((car p) n))))
+	  return ((car p) n)))
 
 (define number 
   (choice (num 2)
@@ -189,17 +190,36 @@
 (define symbol identifier)
 
 (define simple-datum
-  (choice boolean
-	  number
-	  character
-	  string
-	  symbol))
+  (parser r <- (choice boolean
+		       number
+		       character
+		       string
+		       symbol)
+	  (while-char whitespace?)
+	  return r))
 
-(define compound-datum fail) ;; TODO
+(define vector fail) ;; TODO
+(define abbreviation fail) ;; TODO
 
 (define datum 
-  (choice simple-datum
-	  compound-datum))
+  (letrec ((_datum (lambda (s i) ((choice simple-datum compound-datum) s i)))
+	   (_list (lambda (s i) 
+		    ((choice (parser (token "(") 
+				     l <- (while _datum) 
+				     (token ")")
+				     return l)
+			     (parser (token "(") 
+				     l <- (while1 _datum) 
+				     (token ".") 
+				     t <- _datum 
+				     (token ")")
+				     return (let ((tt (last-pair l)))
+					      (begin
+						(set-cdr! tt t)
+						l)))
+			     abbreviation) s i)))
+	   (compound-datum (lambda (s i) ((choice _list vector) s i))))
+    _datum))
 
 ;; Expressions
 
