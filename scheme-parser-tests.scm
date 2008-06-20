@@ -4,14 +4,14 @@
 (load "scheme-parser.scm")
 
 
-(test-group "identifier"
-	    (test '((id . "abc") . 3) (identifier "abc" 0))
-	    (test '((id . "...") . 3) (identifier "..." 0))
-	    (test '((id . "ab@cd") . 5) (identifier "ab@cd" 0))
-	    (test '((id . "$ab@cd") . 6) (identifier "$ab@cd" 0))
-	    (test #f (identifier "@ab@cd" 0))
-	    (test '((id . "+") . 1) (identifier "+34abc" 0))
-	    (test #f (identifier "34abc" 0))
+(test-group "symbol"
+	    (test '(abc . 3) (symbol "abc" 0))
+	    (test '(... . 3) (symbol "..." 0))
+	    (test '(ab@cd . 5) (symbol "ab@cd" 0))
+	    (test '($ab@cd . 6) (symbol "$ab@cd" 0))
+	    (test #f (symbol "@ab@cd" 0))
+	    (test '(+ . 1) (symbol "+34abc" 0))
+	    (test #f (symbol "34abc" 0))
 )
 
 (test-group "string"
@@ -22,10 +22,10 @@
 )
 
 (test-group "literal"
-	    (test '((literal . "abc") . 5) (literal "\"abc\"" 0))
-	    (test '((literal quote id . "abc") . 4) (literal "'abc" 0))
-	    (test '((literal quote id . "abc") . 11) (literal "(quote abc)" 0))
-	    (test '((literal quote id . "abc") . 14) (literal "(quote    abc)" 0))
+	    (test '("abc" . 5) (literal "\"abc\"" 0))
+	    (test '((quote abc) . 4) (literal "'abc" 0))
+	    (test '((quote abc) . 11) (literal "(quote abc)" 0))
+	    (test '((quote abc) . 14) (literal "(quote    abc)" 0))
 )
 
 (test-group "number"

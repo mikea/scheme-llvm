@@ -187,7 +187,9 @@
 	  (num 16)))
 
 ;; External representations
-(define symbol identifier)
+(define symbol 
+  (parser i <- identifier
+	  return (string->symbol i)))
 
 (define simple-datum
   (parser r <- (choice boolean
@@ -226,11 +228,11 @@
 (define quotation
   (choice (parser (matches "'")
 		  d <- datum
-		  return (cons 'quote d))
+		  return (list 'quote d))
 	  (parser (token "(quote")
 	       d <- datum
 	       (token ")")
-	       return (cons 'quote d))))
+	       return (list 'quote d))))
 (define self-evaluating
   (choice boolean
 	  number
@@ -238,8 +240,7 @@
 	  string))
 
 (define literal
-  (parser l <- (choice quotation self-evaluating)
-	  return (cons 'literal l)))
+  (choice quotation self-evaluating))
 
 (define variable fail) ;; TODO
 (define procedure-call fail) ;; TODO
