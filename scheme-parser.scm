@@ -68,7 +68,7 @@
   (parser i <- (choice (str-seq (if-char initial?) 
 				(while-char subsequent?))
 		       peculiar-identifier)
-	  return (cons 'id i)))
+	  return i))
 
 (define string-element
   (choice (if-char (lambda (c) 
