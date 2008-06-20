@@ -111,7 +111,9 @@
 		    (tail-parser (parser . tail))
 		    (head-pos (cdr head-result))
 		    (tail-result (tail-parser s head-pos)))
-	       (cons (car tail-result) (cdr tail-result)))
+	       (if tail-result
+		   (cons (car tail-result) (cdr tail-result))
+		   #f))
 	     #f))))
     ((parser return e) (lambda (s p) (cons e p)))
      ((parser head-parser . tail) 
@@ -122,7 +124,9 @@
   		    (tail-parser (parser . tail))
   		    (head-pos (cdr head-result))
   		    (tail-result (tail-parser s head-pos)))
-  	       (cons (car tail-result) (cdr tail-result)))
+  	       (if tail-result
+		   (cons (car tail-result) (cdr tail-result))
+		   #f))
   	     #f))))
 ))
 

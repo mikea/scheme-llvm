@@ -108,6 +108,15 @@
    					      c <- any-char
    					      return c)))
 			       (p "abc" 0)))
+ 	    (test #f (let ((p (parser c1 <- any-char
+				      c2 <- (char "a")
+				      return (string-append c1 c2))))
+ 				(p "abc" 0)))
+ 	    (test #f (let ((p (parser c1 <- any-char
+				      c2 <- (char "b")
+				      c3 <- (char "a")
+				      return (string-append c1 c2))))
+ 				(p "abc" 0)))
 )
 
 (test-exit)

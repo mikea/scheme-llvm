@@ -24,6 +24,15 @@
 (test-group "literal"
 	    (test '((literal string . "abc") . 5) (literal "\"abc\"" 0))
 	    (test '((literal quote id . "abc") . 4) (literal "'abc" 0))
+	    (test '((literal quote id . "abc") . 11) (literal "(quote abc)" 0))
+	    (test '((literal quote id . "abc") . 14) (literal "(quote    abc)" 0))
+)
+
+(test-group "number"
+	    (test '((number . 123) . 3) (number "123" 0))
+	    (test '((number . 64) . 5) (number "#o100" 0))
+	    (test '((number . 4) . 5) (number "#b100" 0))
+	    (test '((number . 256) . 5) (number "#x100" 0))
 )
 
 (test-exit)
