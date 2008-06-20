@@ -26,6 +26,10 @@ task :execute do
   sh "./llvmasmtest"
 end
 
+task :clean do
+  sh "rm -rf *.bc *.o *.s llvmasmtest"
+end
+
 task :run => [:bytecode, :optimize, :lli]
 task :run_native => [:bytecode, :optimize, :llvm_compile, :asm, :gcc, :execute]
 task :default => :run_native
