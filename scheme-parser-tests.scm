@@ -15,14 +15,14 @@
 )
 
 (test-group "string"
-	    (test '((string . "abc") . 5) (string "\"abc\"" 0))
-	    (test '((string . "a\"c") . 6) (string "\"a\\\"c\"" 0))
-	    (test '((string . "a\\c") . 6) (string "\"a\\\\c\"" 0))
+	    (test '("abc" . 5) (string "\"abc\"" 0))
+	    (test '("a\"c" . 6) (string "\"a\\\"c\"" 0))
+	    (test '("a\\c" . 6) (string "\"a\\\\c\"" 0))
 	    (test #f (string "34abc" 0))
 )
 
 (test-group "literal"
-	    (test '((literal string . "abc") . 5) (literal "\"abc\"" 0))
+	    (test '((literal . "abc") . 5) (literal "\"abc\"" 0))
 	    (test '((literal quote id . "abc") . 4) (literal "'abc" 0))
 	    (test '((literal quote id . "abc") . 11) (literal "(quote abc)" 0))
 	    (test '((literal quote id . "abc") . 14) (literal "(quote    abc)" 0))

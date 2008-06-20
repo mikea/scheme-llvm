@@ -82,7 +82,7 @@
   (parser (matches "\"")
 	  s <- (while string-element)
 	  (token "\"")
-	  return (cons 'string (apply string-append s))))
+	  return (apply string-append s)))
 
 (define boolean fail) ;; TODO
 (define character fail) ;; TODO
