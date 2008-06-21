@@ -1,6 +1,45 @@
-task :test do
+require 'rake'
+require 'rake/contrib/sys'
+require 'tempfile'
+
+task :unit_test do
   sh "csi -b parser-lib-tests.scm"
   sh "csi -b scheme-parser-tests.scm"
 end
 
+task :test_testsuite do
+  Sys::for_files("tests/*.scm") { |f|
+    content = File.read(f)
+    
+    test = ""
+    response = ""
+    content.each_line { |l|
+      if (l =~ /^;;\s*(.*)/)
+        test = "(display " + test.strip + ")"
+        expected = $1
+
+        fin = Tempfile.new("scheme-llvm-test-in")
+        fout = Tempfile.new("scheme-llvm-test-out")
+        fin.write(test)
+        fin.close
+        sh "csi -s #{fin.path} > #{fout.path}"
+
+        actual = fout.read()
+
+        if (expected != actual)
+          print "\nERROR in #{f}\n"
+          print "EXPECTED: #{expected}\n"
+          print "ACTUAL: #{actual}\n\n"
+          fail
+        end
+
+        test = ""
+      else 
+        test += l
+      end 
+    }
+  }
+end
+
+task :test => :unit_test
 task :default => :test
