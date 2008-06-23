@@ -18,8 +18,10 @@ typedef struct {
 #define CHECK(b) assert(b)
 #define CHECK_IS_CONS(d) CHECK(d->type == T_CONS)
 #define CHECK_IS_INT(d) CHECK(d->type == T_INT)
+#define CHECK_IS_SYMBOL(d) CHECK(d->type == T_SYMBOL)
 
 #define CONS(d) ((Cons*)(d->data))
+#define CHARP(d) ((char*)(d->data))
 #define INT(d) ((int)(d->data))
 
 Data* car(Data* d) {
@@ -37,10 +39,18 @@ void display_int(Data* d) {
   printf("%d", INT(d));
 }
 
+void display_symbol(Data* d) {
+  CHECK_IS_SYMBOL(d);
+  printf("%s", CHARP(d));
+}
+
 Data* display(Data* d) {
   switch (d->type) {
   case T_INT : 
     display_int(d);
+    break;
+  case T_SYMBOL :
+    display_symbol(d);
     break;
   default : assert(0);
   }

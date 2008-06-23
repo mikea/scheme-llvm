@@ -1,6 +1,10 @@
 require 'rake'
 require 'rake/contrib/sys'
 require 'tempfile'
+require 'rake/clean'
+
+CLEAN.include("*.bc")
+CLEAN.include("*.ll")
 
 llvmgcc="llvm-gcc-4.2"
 
@@ -52,7 +56,7 @@ task :test_testsuite do
   }
 end
 
-task :test_suite do
+task :test_suite => :runtime do
   process_test_suite { |test_data|
     dir = "/tmp/scheme-llvm"
     fin = dir + "/test.scm"
@@ -78,11 +82,16 @@ task :test_suite do
   }
 end
 
-task :build_runtime do
-  sh "#{llvmgcc} -S -emit-llvm -o runtime.ll runtime.c"
-  sh "llvm-as -f runtime.ll"
-  sh "opt -f -std-compile-opts -o runtime.bc runtime.bc"
+rule ".ll" => ".c" do |t|
+  sh "#{llvmgcc} -S -emit-llvm -o #{t.name} #{t.source}"
 end
+
+rule ".bc" => ".ll" do |t|
+  sh "llvm-as -f -o #{t.name} #{t.source}"
+  sh "opt -f -std-compile-opts -o #{t.name} #{t.name}"
+end
+
+task :runtime => "runtime.bc"
 
 task :test => :unit_test
 task :default => :test

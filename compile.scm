@@ -1,9 +1,16 @@
 (load "scheme-parser.scm")
 
 (define literal-var-num 0)
+(define local-var-num 0)
 (define globals "")
 (define global-init "")
 
+(define symbols ())
+
+(define (next-local-var)
+  (set! local-var-num (+ local-var-num 1))
+  (string-append "%t." (number->string local-var-num)))
+  
 (define (next-literal-var)
   (set! literal-var-num (+ literal-var-num 1))
   (string-append "@L." (number->string literal-var-num)))
@@ -14,6 +21,16 @@
 (define (add-global-init s)
   (set! global-init (string-append global-init s "\n")))
 
+(define (gen-global-init . params)
+  (add-global-init (apply format params)))
+
+(define (gen-global . params)
+  (add-global (apply format params)))
+
+(define (gen . params)
+  (display (apply format params))
+  (newline))
+
 (define (compile-number-literal e)
   (let ((var-name (next-literal-var)))
     (add-global 
@@ -23,31 +40,83 @@
 	      e))
     var-name))
 
+(define (compile-symbol e)
+  (let ((p (assoc e symbols)))
+  (if p 
+      (cdr p)
+      (let* ((var-name (next-literal-var))
+	     (var-str (next-literal-var))
+	     (str (symbol->string e))
+	     (str-ptr-var (next-local-var))
+	     (res-ptr-var (next-local-var))
+	     (call-res-var (next-local-var))
+	     (result-var (next-local-var))
+	     (array-len (+ (string-length str) 1)))
+	(set! symbols (cons (list e var-name) symbols))
+	(gen-global "~a = internal constant DATA* zeroinitializer" var-name)
+	(gen-global "~a = internal constant [~a x i8] c\"~a\\00\""
+		    var-str array-len str)
+	(gen-global-init "~A = getelementptr [~a x i8]* ~a, i64 0, i64 0" 
+			 str-ptr-var array-len var-str)
+	(gen-global-init "~a = call DATA* @string_to_symbol(i8* ~a)" 
+			 call-res-var str-ptr-var)
+	(gen-global-init "~a = getelementptr DATA** ~a, i64 0"
+			 res-ptr-var var-name)
+	(gen-global-init "store DATA* ~a, DATA** ~a"
+			 call-res-var res-ptr-var)
+	(gen "~a = getelementptr DATA** ~a, i64 0"
+	     res-ptr-var var-name)
+	(gen "~a = load DATA** ~a"
+	     result-var res-ptr-var)
+	result-var))))
+
 (define (compile-call e)
-  (let ((args (map (lambda (e1) (compile e1)) (cdr e))))
-    (display (format "CAN'T COMPILE CALL: ~a\n" args))))
+  (let ((args (map (lambda (e1) (compile e1)) (cdr e)))
+	(symbol (compile-symbol (car e))))
+    symbol))
+
+(define (compile-pair-literal e)
+  (let ((var-name (next-literal-var))
+	(h (compile-literal (car e)))
+	(t (compile-literal (cdr e)))
+	(cons-var (next-literal-var))
+	(data-addr-var (next-local-var))
+	(type-addr-var (next-local-var))
+	(casted-value-var (next-local-var))
+	(car-addr-var (next-local-var))
+	(cdr-addr-var (next-local-var)))
+    (gen-global "~a = internal constant DATA zeroinitializer" var-name)
+    (gen-global "~a = internal constant CONS zeroinitializer" cons-var)
+
+    ;; Init DATA cell with pointer to CONS
+    (gen-global-init  "~a = getelementptr DATA* ~a, i32 0, i32 0"
+		      data-addr-var var-name)
+    (gen-global-init "~a = bitcast CONS* ~a to i8*"
+		     casted-value-var cons-var);
+    (gen-global-init "store i8* ~a, i8* * ~a"
+		     casted-value-var data-addr-var)
+    (gen-global-init "~a = getelementptr DATA* ~a, i32 0, i32 1"
+		     type-addr-var var-name)
+    (gen-global-init "store i8 T_CONS, i8* ~a"
+		     type-addr-var)
+
+    ;; Setup CAR & CDR in CONS cell
+    (gen-global-init "~a = getelementptr CONS* ~a, i32 0, i32 0"
+		     car-addr-var cons-var)
+    (gen-global-init "store DATA* ~a, DATA* * ~a"
+		     h car-addr-var)
+    (gen-global-init "~a = getelementptr CONS* ~a, i32 0, i32 1"
+		     cdr-addr-var cons-var)
+    (gen-global-init "store DATA* ~a, DATA* * ~a"
+		     t cdr-addr-var)
+    var-name))
 
 (define (compile-literal e)
   (cond 
    ((number? e) (compile-number-literal e))
-   ((pair? e) (let ((var-name (next-literal-var))
-		    (h (compile-literal (car e)))
-		    (t (compile-literal (cdr e)))
-		    (cons-var (next-literal-var)))
-		(add-global
-		 (format "~a = internal constant DATA\n" var-name))
-		(add-global
-		 (format "~a = internal constant CONS\n" cons-var))
-		(add-global-init
-		 (format 
-		  "INIT_DATA(~a, ~a, CONS*, T_CONS)" var-name cons-var))
-		(add-global-init
-		 (format 
-		  "SET_CAR(~a, ~a)" cons-var h))
-		(add-global-init
-		 (format 
-		  "SET_CDR(~a, ~a)" cons-var t))
-		var-name))
+   ((pair? e) (compile-pair-literal e))
+   ((symbol? e) (compile-symbol e))
+   ((null? e) "inttoptr(i64 0 to DATA*)")
    (else (display "CAN'T COMPILE LITERAL: ")
 	 (display e)
 	 (newline))))
