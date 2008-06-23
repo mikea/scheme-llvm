@@ -1,4 +1,0 @@
-llvmasmtest
-*.bc
-*.s
-*.o

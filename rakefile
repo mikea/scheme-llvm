@@ -2,30 +2,26 @@ require 'rake'
 require 'rake/contrib/sys'
 require 'tempfile'
 
+llvmgcc="llvm-gcc-4.2"
+
 task :unit_test do
   sh "csi -b parser-lib-tests.scm"
   sh "csi -b scheme-parser-tests.scm"
 end
 
-task :test_testsuite do
+def process_test_suite(&block)
   Sys::for_files("tests/*.scm") { |f|
+    puts "------- Testing #{f}\n"
     content = File.read(f)
     
     test = ""
     response = ""
     content.each_line { |l|
       if (l =~ /^;;\s*(.*)/)
-        test = "(display " + test.strip + ")"
         expected = $1
-
-        fin = Tempfile.new("scheme-llvm-test-in")
-        fout = Tempfile.new("scheme-llvm-test-out")
-        fin.write(test)
-        fin.close
-        sh "csi -s #{fin.path} > #{fout.path}"
-
-        actual = fout.read()
-
+        
+        actual = block.call(test.strip)
+        
         if (expected != actual)
           print "\nERROR in #{f}\n"
           print "EXPECTED: #{expected}\n"
@@ -39,6 +35,53 @@ task :test_testsuite do
       end 
     }
   }
+end
+
+task :test_testsuite do
+  process_test_suite { |test_data|
+    test_data = "(display " + test_data + ")"
+
+    fin = Tempfile.new("scheme-llvm-test-in")
+    fout = Tempfile.new("scheme-llvm-test-out")
+    fin.write(test_data)
+    fin.close
+    sh "csi -s #{fin.path} > #{fout.path}"
+
+    actual = fout.read()
+    actual
+  }
+end
+
+task :test_suite do
+  process_test_suite { |test_data|
+    dir = "/tmp/scheme-llvm"
+    fin = dir + "/test.scm"
+    fll = dir + "/test.ll"
+    fbc = dir + "/test.bc"
+    fmain = dir + "/main.bc"
+    fout = dir + "/test.out"
+    
+    stream = open(fin, "w")
+    stream.write(test_data)
+    stream.close
+
+    sh "cat #{fin} | csi -s compile.scm | cpp -P > #{fll}"
+    sh "llvm-as -f -o #{fbc} #{fll}"
+    sh "llvm-link -f -o #{fmain} runtime.bc #{fbc}"
+    sh "lli #{fmain} > #{fout}"
+
+    stream = open(fout)
+    actual = stream.read();
+    stream.close()
+
+    actual
+  }
+end
+
+task :build_runtime do
+  sh "#{llvmgcc} -S -emit-llvm -o runtime.ll runtime.c"
+  sh "llvm-as -f runtime.ll"
+  sh "opt -f -std-compile-opts -o runtime.bc runtime.bc"
 end
 
 task :test => :unit_test
