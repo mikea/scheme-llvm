@@ -29,8 +29,10 @@ def process_test_suite(&block)
         if (expected != actual)
           print "\nERROR in #{f}\n"
           print "EXPECTED: #{expected}\n"
-          print "ACTUAL: #{actual}\n\n"
+          print "ACTUAL  : #{actual}\n\n"
           fail
+        elsif (actual == "<failure>")
+          print "don't worry, failure expected\n"
         end
 
         test = ""
@@ -39,6 +41,8 @@ def process_test_suite(&block)
       end 
     }
   }
+
+  print "PASSED\n"
 end
 
 task :test_testsuite do
@@ -49,14 +53,21 @@ task :test_testsuite do
     fout = Tempfile.new("scheme-llvm-test-out")
     fin.write(test_data)
     fin.close
-    sh "csi -s #{fin.path} > #{fout.path}"
 
-    actual = fout.read()
+    actual = ""
+    sh "csi -s #{fin.path} > #{fout.path}" do |ok, res|
+      if ! ok
+        actual = "<failure>"
+      else
+        actual = fout.read()
+      end
+    end
     actual
   }
 end
 
 task :test_suite => :runtime do
+  mkdir_p "/tmp/scheme-llvm"
   process_test_suite { |test_data|
     dir = "/tmp/scheme-llvm"
     fin = dir + "/test.scm"

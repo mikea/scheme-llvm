@@ -1,10 +1,11 @@
 (load "scheme-parser.scm")
+(require-extension srfi-13)
 
 (define literal-var-num 0)
 (define local-var-num 0)
 (define globals "")
 (define global-init "")
-
+(define environment '((car builtin) (cdr builtin)))
 (define symbols ())
 
 (define (next-local-var)
@@ -31,6 +32,10 @@
   (display (apply format params))
   (newline))
 
+(define (error . params)
+  (display (apply format params))
+  (newline))
+
 (define (compile-number-literal e)
   (let ((var-name (next-literal-var)))
     (add-global 
@@ -53,9 +58,10 @@
 	     (result-var (next-local-var))
 	     (array-len (+ (string-length str) 1)))
 	(set! symbols (cons (list e var-name) symbols))
-	(gen-global "~a = internal constant DATA* zeroinitializer" var-name)
+	(gen-global "~a = internal constant DATA* zeroinitializer; ~a" var-name e)
 	(gen-global "~a = internal constant [~a x i8] c\"~a\\00\""
 		    var-str array-len str)
+	(gen-global-init "; init ~a" e)
 	(gen-global-init "~A = getelementptr [~a x i8]* ~a, i64 0, i64 0" 
 			 str-ptr-var array-len var-str)
 	(gen-global-init "~a = call DATA* @string_to_symbol(i8* ~a)" 
@@ -64,16 +70,26 @@
 			 res-ptr-var var-name)
 	(gen-global-init "store DATA* ~a, DATA** ~a"
 			 call-res-var res-ptr-var)
-	(gen "~a = getelementptr DATA** ~a, i64 0"
-	     res-ptr-var var-name)
+	(gen "~a = getelementptr DATA** ~a, i64 0; ~a"
+	     res-ptr-var var-name e)
 	(gen "~a = load DATA** ~a"
 	     result-var res-ptr-var)
 	result-var))))
 
 (define (compile-call e)
-  (let ((args (map (lambda (e1) (compile e1)) (cdr e)))
-	(symbol (compile-symbol (car e))))
-    symbol))
+  (let* ((args (map (lambda (e1) (compile e1)) (cdr e)))
+	 (symbol (car e))
+	 (binding (assoc symbol environment)))
+    (if binding
+	(cond 
+	 ((eq? (cadr binding) 'builtin) 
+	  (let* ((var (next-local-var))
+		 (args-with-types (map (lambda (s) (string-append "DATA* " s)) args))
+		 (arglist (string-join args-with-types ", ")))
+	    (gen "~a = call DATA* @~a(~a); call ~a" var symbol arglist symbol)
+	    var))
+	 (else (error "Can't compile ~a :  ~a" symbol binding)))
+	(error "ERROR: ~a symbol not found" symbol))))
 
 (define (compile-pair-literal e)
   (let ((var-name (next-literal-var))
@@ -85,10 +101,11 @@
 	(casted-value-var (next-local-var))
 	(car-addr-var (next-local-var))
 	(cdr-addr-var (next-local-var)))
-    (gen-global "~a = internal constant DATA zeroinitializer" var-name)
+    (gen-global "~a = internal constant DATA zeroinitializer; ~a" var-name e)
     (gen-global "~a = internal constant CONS zeroinitializer" cons-var)
 
     ;; Init DATA cell with pointer to CONS
+    (gen-global-init "; init ~a" e)
     (gen-global-init  "~a = getelementptr DATA* ~a, i32 0, i32 0"
 		      data-addr-var var-name)
     (gen-global-init "~a = bitcast CONS* ~a to i8*"

@@ -45,6 +45,10 @@ void display_symbol(Data* d) {
 }
 
 Data* display(Data* d) {
+  if (!d) {
+    printf("()");
+    return 0;
+  }
   switch (d->type) {
   case T_INT : 
     display_int(d);
