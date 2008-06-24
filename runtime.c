@@ -34,6 +34,10 @@ Data* car(Data* d) {
 }
 
 Data* cdr(Data* d) {
+  if (!d) {
+    fprintf(stderr, "ERROR: calling (cdr ())\n");
+    exit(2);
+  }
   CHECK_IS_CONS(d);
   return CONS(d)->cdr;
 }
@@ -132,59 +136,11 @@ Data* string_to_symbol(char* str) {
   return d;
 }
 
-void add_to_env(Data* symbol,
-		Data* value,
-		Cons** env,
-		int* env_size,
-		int* env_count) {
-  assert(*env_count < *env_size);
-
-  Cons* c = &((*env)[*env_count]);
-  *env_count++;
-  c->car = symbol;
-  c->cdr = value;
-}
-
-Data* new_builtin(void* f) {
-  Data* d = malloc(sizeof(Data));
-  d->type = T_BUILTIN;
-  d->data = f;
-  return d;
-}
-
-Cons* env;
-int env_size;
-int env_count;
-
-void register_builtin(char* name, void* f) {
-  add_to_env(string_to_symbol(name), new_builtin(f), &env, &env_size, &env_count);
-}
-
-void init_environment() {
-  env_size = 100;
-  env_count = 0;
-  env = malloc(sizeof(Cons) * env_size);
-  memset(env, 0, sizeof(Cons) * env_size);
-
-  register_builtin("car", car);
-  register_builtin("cdr", cdr);
-}
-
-Data* get_env(Data* symbol) {
-  int i;
-  for (i = 0; i < env_count; i++) {
-    if (env[i].car == symbol) return env[i].cdr;
-  }
-
-  assert(0);
-}
-
 void scheme_main(void);
 void scheme_init(void);
 
 int main(int argc, char** argv) {
   init_symbols();
-  init_environment();
   scheme_init();
   scheme_main();
   return 0;
