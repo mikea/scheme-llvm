@@ -2,102 +2,13 @@ require 'rake'
 require 'rake/contrib/sys'
 require 'tempfile'
 require 'rake/clean'
+require 'fileutils'
 
 CLEAN.include("*.bc")
 CLEAN.include("*.ll")
-
+TESTS = FileList["tests/*.scm"]
+TEST_RESULTS = TESTS.ext("ok")
 llvmgcc="llvm-gcc-4.2"
-
-task :unit_test do
-  sh "csi -b parser-lib-tests.scm"
-  sh "csi -b scheme-parser-tests.scm"
-end
-
-def process_test_suite(&block)
-  Sys::for_files("tests/*.scm") { |f|
-    puts "------- Testing #{f}\n"
-    content = File.read(f)
-    
-    test = ""
-    response = ""
-    content.each_line { |l|
-      if (l =~ /^;;\s*(.*)/)
-        expected = $1
-        
-        actual = block.call(test.strip)
-        
-        if (expected != actual)
-          print "\nERROR in #{f}\n"
-          print "EXPECTED: #{expected}\n"
-          print "ACTUAL  : #{actual}\n\n"
-          fail
-        elsif (actual == "<failure>")
-          print "don't worry, failure expected\n"
-        end
-
-        test = ""
-      else 
-        test += l
-      end 
-    }
-  }
-
-  print "\n----------\nTEST SUITE PASSED\n----------\n\n"
-end
-
-task :test_testsuite do
-  process_test_suite { |test_data|
-    test_data = "(display " + test_data + ")"
-
-    fin = Tempfile.new("scheme-llvm-test-in")
-    fout = Tempfile.new("scheme-llvm-test-out")
-    fin.write(test_data)
-    fin.close
-
-    actual = ""
-    sh "csi -s #{fin.path} > #{fout.path}" do |ok, res|
-      if ! ok
-        actual = "<failure>"
-      else
-        actual = fout.read()
-      end
-    end
-    actual
-  }
-end
-
-task :test_suite => :runtime do
-  mkdir_p "/tmp/scheme-llvm"
-  process_test_suite { |test_data|
-    dir = "/tmp/scheme-llvm"
-    fin = dir + "/test.scm"
-    fll = dir + "/test.ll"
-    fbc = dir + "/test.bc"
-    fmain = dir + "/main.bc"
-    fout = dir + "/test.out"
-    
-    stream = open(fin, "w")
-    stream.write(test_data)
-    stream.close
-
-    sh "cat #{fin} | csi -s compile.scm | cpp -P > #{fll}"
-    sh "llvm-as -f -o #{fbc} #{fll}"
-    sh "llvm-link -f -o #{fmain} runtime.bc #{fbc}"
-
-    actual = ""
-    sh "lli #{fmain} > #{fout}" do |ok, res|
-      if ! ok
-        actual = "<failure>"
-      else
-        stream = open(fout)
-        actual = stream.read();
-        stream.close()
-      end
-    end
-
-    actual
-  }
-end
 
 rule ".ll" => ".c" do |t|
   sh "#{llvmgcc} -S -emit-llvm -o #{t.name} #{t.source}"
@@ -108,7 +19,116 @@ rule ".bc" => ".ll" do |t|
   sh "opt -f -std-compile-opts -o #{t.name} #{t.name}"
 end
 
+namespace :test do
+
+def process_test_file(f, &block)
+  puts "------- Testing #{f}\n"
+  content = File.read(f)
+  
+  test = ""
+  response = ""
+  content.each_line { |l|
+    if (l =~ /^;;\s*(.*)/)
+      expected = $1
+      
+      actual = block.call(test.strip)
+      
+      if (expected != actual)
+        print "\nERROR in #{f}\n"
+        print "EXPECTED: #{expected}\n"
+        print "ACTUAL  : #{actual}\n\n"
+        fail
+      elsif (actual == "<failure>")
+        print "don't worry, failure expected\n"
+      end
+      
+      test = ""
+    else 
+      test += l
+    end 
+  }
+end
+
+def run_test(test_data)
+  dir = "/tmp/scheme-llvm"
+  fin = dir + "/test.scm"
+  fll = dir + "/test.ll"
+  fbc = dir + "/test.bc"
+  fmain = dir + "/main.bc"
+  fout = dir + "/test.out"
+  
+  stream = open(fin, "w")
+  stream.write(test_data)
+  stream.close
+
+  sh "cat #{fin} | csi -s compile.scm | cpp -P > #{fll}"
+  sh "llvm-as -f -o #{fbc} #{fll}"
+  sh "llvm-link -f -o #{fmain} runtime.bc #{fbc}"
+
+  actual = ""
+  sh "lli #{fmain} > #{fout}" do |ok, res|
+    if ! ok
+      actual = "<failure>"
+    else
+      stream = open(fout)
+      actual = stream.read();
+      stream.close()
+    end
+  end
+  
+  actual
+end
+
+def verify_test(test_data)
+  test_data = "(display (begin " + test_data + "))"
+  
+  fin = Tempfile.new("scheme-llvm-test-in")
+  fout = Tempfile.new("scheme-llvm-test-out")
+  fin.write(test_data)
+  fin.close
+  
+  actual = ""
+  sh "csi -s #{fin.path} > #{fout.path}" do |ok, res|
+    if ! ok
+      actual = "<failure>"
+    else
+      actual = fout.read()
+    end
+  end
+  actual
+end
+
+task :unit_test do
+  sh "csi -b parser-lib-tests.scm"
+  sh "csi -b scheme-parser-tests.scm"
+end
+
+task :all => :unit_test
+
+TESTS.each do |f|
+  task "verify_#{f}" => f do
+    process_test_file(f) { |test_data|
+      verify_test(test_data)
+    }
+  end
+
+  task "run_#{f}" => [f, "verify_#{f}"] do
+    mkdir_p "/tmp/scheme-llvm"
+    process_test_file(f) { |test_data|
+      run_test(test_data)
+    }
+  end
+
+  task :all => "run_#{f}"
+end
+
+task :all do
+  print "\n----------\nTEST SUITE PASSED\n----------\n\n"
+end
+
+end
+
 task :runtime => "runtime.bc"
 
-task :test => :unit_test
+task :test => [:runtime, "test:all"]
 task :default => :test
