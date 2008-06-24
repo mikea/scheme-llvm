@@ -5,7 +5,7 @@
 (define local-var-num 0)
 (define globals "")
 (define global-init "")
-(define environment '((car builtin) (cdr builtin)))
+(define initial-environment '((car builtin) (cdr builtin)))
 (define symbols ())
 
 (define (next-local-var)
@@ -35,18 +35,21 @@
 (define (gen-to-list instruction-list . params)
   (instruction-list (string-append (apply format params))))
 
-(define global-list
+(define main-list
   (lambda (s)
     (display s)
     (newline)))
+
+(define global-list
+  (lambda (s)
+    (add-global s)))
 
 (define global-init-list
   (lambda (s)
     (add-global-init s)))
 
-(define (error . params)
-  (display (apply format params))
-  (newline))
+(define (error i . params)
+  (i (string-append "ERROR: " (apply format params) "\n")))
 
 (define (compile-number-literal e i)
   (let ((var-name (next-literal-var)))
@@ -98,20 +101,44 @@
 	     result-var res-ptr-var-load)
 	result-var))))
 
-(define (compile-call e i)
-  (let* ((args (map (lambda (e1) (compile e1)) (cdr e)))
-	 (symbol (car e))
-	 (binding (assoc symbol environment)))
-    (if binding
-	(cond 
-	 ((eq? (cadr binding) 'builtin) 
-	  (let* ((var (next-local-var))
-		 (args-with-types (map (lambda (s) (string-append "DATA* " s)) args))
-		 (arglist (string-join args-with-types ", ")))
-	    (gen-to-list i "~a = call DATA* @~a(~a); call ~a" var symbol arglist symbol)
-	    var))
-	 (else (error "Can't compile ~a :  ~a" symbol binding)))
-	(error "ERROR: ~a symbol not found" symbol))))
+(define (compile-lambda e i env)
+  (let* ((formals (cadr e))
+	 (body (caddr e))
+	 (proc-name (next-literal-var))
+	 (formals-definition (map (lambda (x) (format "DATA* %~a" x)) formals))
+	 (add-env (map (lambda (x) (cons x (format "%~a" x))) formals)))
+    (gen-global "define DATA* ~a(~a) {; ~a" 
+		proc-name (string-join formals-definition ",") e)
+    (let ((ret (compile body global-list (append add-env env))))
+      (gen-global "ret DATA* ~a" ret)
+      (gen-global "}"))
+    proc-name))
+
+(define (compile-call e i env)
+  (let* ((args (map (lambda (e1) (compile e1 i env)) (cdr e)))
+	(args-with-types 
+	 (map (lambda (s) (string-append "DATA* " s)) args))
+	(var (next-local-var))
+	(arglist (string-join args-with-types ", ")))
+    (if (symbol? (car e))
+	;; compile call
+	(let* ((symbol (car e))
+	      (binding (assoc symbol env)))
+	  (if binding
+	      (cond 
+	       ((eq? (cadr binding) 'builtin) 
+		(gen-to-list i "~a = call DATA* @~a(~a); call ~a" 
+			     var symbol arglist symbol)
+		var)
+	       (else (error i "Can't compile ~a :  ~a" symbol binding)))
+	      (error i "~a symbol not found" symbol)))
+	(if (eq? 'lambda (caar e))
+	    ;; compile lambda
+	    (let ((lambda-var (compile-lambda (car e) i env)))
+	      (gen-to-list i "~a = call DATA* ~a(~a)" 
+			   var lambda-var arglist)
+	      var)
+	    (error i "Can't compile call: ~a" e)))))
 
 (define (compile-pair-literal e i)
   (let ((var-name (next-literal-var))
@@ -160,13 +187,18 @@
 	 (i e)
 	 (i "\n"))))
 
-(define (compile e)
+(define (compile e i env)
   (let ((r (cond
-	    ((number? e) (compile-literal e global-list))
-	    ((eq? 'quote (car e)) (compile-literal (cadr e) global-list))
-	    (#t (compile-call e global-list))
-	    (else (display (format
-			    "ERROR: can't compile ~a\n" e))))))
+	    ((number? e) (compile-literal e main-list))
+	    ((pair? e)
+	     (cond
+	      ((eq? 'quote (car e)) (compile-literal (cadr e) main-list))
+	      (#t (compile-call e i env))))
+	    (else 
+	     (let ((binding (assoc e env)))
+	       (if binding
+		   (cdr binding)
+		   (error i "can't compile ~a in env: ~a" e env)))))))
     r))
 
 (define (output-header)
@@ -186,7 +218,7 @@
   (let loop ()
     (let ((e (read)))
       (if (not (eof-object? e))
-	  (let ((r (compile e)))
+	  (let ((r (compile e main-list initial-environment)))
 	    (display (format 
 		      "call %struct.Data* @display( %struct.Data* ~a ) \n"
 		      r))
