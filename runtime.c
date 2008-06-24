@@ -25,6 +25,10 @@ typedef struct {
 #define INT(d) ((int)(d->data))
 
 Data* car(Data* d) {
+  if (!d) {
+    fprintf(stderr, "ERROR: calling (car ())\n");
+    exit(2);
+  }
   CHECK_IS_CONS(d);
   return CONS(d)->car;
 }
@@ -34,6 +38,8 @@ Data* cdr(Data* d) {
   return CONS(d)->cdr;
 }
 
+Data* display(Data* d);
+
 void display_int(Data* d) {
   CHECK_IS_INT(d);
   printf("%d", INT(d));
@@ -42,6 +48,26 @@ void display_int(Data* d) {
 void display_symbol(Data* d) {
   CHECK_IS_SYMBOL(d);
   printf("%s", CHARP(d));
+}
+
+void display_cons(Data* d) {
+  CHECK_IS_CONS(d);
+  printf("(");
+  display(car(d));
+  Data* t = cdr(d);
+  while (t) {
+    if (t->type == T_CONS) {
+      printf(" ");
+      display(car(t));
+      t = cdr(t);
+    }
+    else {
+      printf(" . ");
+      display(t);
+      break;
+    }
+  }
+  printf(")");
 }
 
 Data* display(Data* d) {
@@ -56,7 +82,12 @@ Data* display(Data* d) {
   case T_SYMBOL :
     display_symbol(d);
     break;
-  default : assert(0);
+  case T_CONS :
+    display_cons(d);
+    break;
+  default : 
+    fprintf(stderr, "Unknown type: %d\n", d->type);
+    assert(0);
   }
   return 0;
 }

@@ -32,11 +32,23 @@
   (display (apply format params))
   (newline))
 
+(define (gen-to-list instruction-list . params)
+  (instruction-list (string-append (apply format params))))
+
+(define global-list
+  (lambda (s)
+    (display s)
+    (newline)))
+
+(define global-init-list
+  (lambda (s)
+    (add-global-init s)))
+
 (define (error . params)
   (display (apply format params))
   (newline))
 
-(define (compile-number-literal e)
+(define (compile-number-literal e i)
   (let ((var-name (next-literal-var)))
     (add-global 
      (format 
@@ -45,15 +57,24 @@
 	      e))
     var-name))
 
-(define (compile-symbol e)
+(define (compile-symbol e i)
   (let ((p (assoc e symbols)))
   (if p 
-      (cdr p)
+      (let* ((var-name (cadr p))
+	     (res-ptr-var-load (next-local-var))
+	     (result-var (next-local-var)))
+	(gen-to-list i "; load ~a" e)
+	(gen-to-list i "~a = getelementptr DATA** ~a, i64 0; ~a"
+		     res-ptr-var-load var-name e)
+	(gen-to-list i "~a = load DATA** ~a"
+		     result-var res-ptr-var-load)
+	result-var)
       (let* ((var-name (next-literal-var))
 	     (var-str (next-literal-var))
 	     (str (symbol->string e))
 	     (str-ptr-var (next-local-var))
 	     (res-ptr-var (next-local-var))
+	     (res-ptr-var-load (next-local-var))
 	     (call-res-var (next-local-var))
 	     (result-var (next-local-var))
 	     (array-len (+ (string-length str) 1)))
@@ -70,13 +91,14 @@
 			 res-ptr-var var-name)
 	(gen-global-init "store DATA* ~a, DATA** ~a"
 			 call-res-var res-ptr-var)
-	(gen "~a = getelementptr DATA** ~a, i64 0; ~a"
-	     res-ptr-var var-name e)
-	(gen "~a = load DATA** ~a"
-	     result-var res-ptr-var)
+	(gen-to-list i "; load ~a" e)
+	(gen-to-list i "~a = getelementptr DATA** ~a, i64 0; ~a"
+	     res-ptr-var-load var-name e)
+	(gen-to-list i "~a = load DATA** ~a"
+	     result-var res-ptr-var-load)
 	result-var))))
 
-(define (compile-call e)
+(define (compile-call e i)
   (let* ((args (map (lambda (e1) (compile e1)) (cdr e)))
 	 (symbol (car e))
 	 (binding (assoc symbol environment)))
@@ -86,15 +108,15 @@
 	  (let* ((var (next-local-var))
 		 (args-with-types (map (lambda (s) (string-append "DATA* " s)) args))
 		 (arglist (string-join args-with-types ", ")))
-	    (gen "~a = call DATA* @~a(~a); call ~a" var symbol arglist symbol)
+	    (gen-to-list i "~a = call DATA* @~a(~a); call ~a" var symbol arglist symbol)
 	    var))
 	 (else (error "Can't compile ~a :  ~a" symbol binding)))
 	(error "ERROR: ~a symbol not found" symbol))))
 
-(define (compile-pair-literal e)
+(define (compile-pair-literal e i)
   (let ((var-name (next-literal-var))
-	(h (compile-literal (car e)))
-	(t (compile-literal (cdr e)))
+	(h (compile-literal (car e) global-init-list))
+	(t (compile-literal (cdr e) global-init-list))
 	(cons-var (next-literal-var))
 	(data-addr-var (next-local-var))
 	(type-addr-var (next-local-var))
@@ -118,32 +140,31 @@
 		     type-addr-var)
 
     ;; Setup CAR & CDR in CONS cell
-    (gen-global-init "~a = getelementptr CONS* ~a, i32 0, i32 0"
+    (gen-global-init "~a = getelementptr CONS* ~a, i32 0, i32 0; car"
 		     car-addr-var cons-var)
     (gen-global-init "store DATA* ~a, DATA* * ~a"
 		     h car-addr-var)
-    (gen-global-init "~a = getelementptr CONS* ~a, i32 0, i32 1"
+    (gen-global-init "~a = getelementptr CONS* ~a, i32 0, i32 1; cdr"
 		     cdr-addr-var cons-var)
     (gen-global-init "store DATA* ~a, DATA* * ~a"
 		     t cdr-addr-var)
     var-name))
 
-(define (compile-literal e)
+(define (compile-literal e i)
   (cond 
-   ((number? e) (compile-number-literal e))
-   ((pair? e) (compile-pair-literal e))
-   ((symbol? e) (compile-symbol e))
+   ((number? e) (compile-number-literal e i))
+   ((pair? e) (compile-pair-literal e i))
+   ((symbol? e) (compile-symbol e i))
    ((null? e) "inttoptr(i64 0 to DATA*)")
-   (else (display "CAN'T COMPILE LITERAL: ")
-	 (display e)
-	 (newline))))
+   (else (i "CAN'T COMPILE LITERAL: ")
+	 (i e)
+	 (i "\n"))))
 
 (define (compile e)
-  (display (format "; Compile ~a\n" e))
   (let ((r (cond
-	    ((number? e) (compile-literal e))
-	    ((eq? 'quote (car e)) (compile-literal (cadr e)))
-	    (#t (compile-call e))
+	    ((number? e) (compile-literal e global-list))
+	    ((eq? 'quote (car e)) (compile-literal (cadr e) global-list))
+	    (#t (compile-call e global-list))
 	    (else (display (format
 			    "ERROR: can't compile ~a\n" e))))))
     r))

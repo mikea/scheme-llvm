@@ -83,11 +83,17 @@ task :test_suite => :runtime do
     sh "cat #{fin} | csi -s compile.scm | cpp -P > #{fll}"
     sh "llvm-as -f -o #{fbc} #{fll}"
     sh "llvm-link -f -o #{fmain} runtime.bc #{fbc}"
-    sh "lli #{fmain} > #{fout}"
 
-    stream = open(fout)
-    actual = stream.read();
-    stream.close()
+    actual = ""
+    sh "lli #{fmain} > #{fout}" do |ok, res|
+      if ! ok
+        actual = "<failure>"
+      else
+        stream = open(fout)
+        actual = stream.read();
+        stream.close()
+      end
+    end
 
     actual
   }
