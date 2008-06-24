@@ -42,7 +42,7 @@ def process_test_suite(&block)
     }
   }
 
-  print "PASSED\n"
+  print "\n----------\nTEST SUITE PASSED\n----------\n\n"
 end
 
 task :test_testsuite do
