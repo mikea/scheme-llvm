@@ -205,6 +205,14 @@
 		   (error i "can't compile ~a in env: ~a" e env)))))))
     r))
 
+(define (compile-list exprs i env)
+  (let loop ((ee exprs))
+    (if (not (null? (cdr ee)))
+	(begin
+	  (compile (car ee) i env)
+	  (loop (cdr ee)))
+	(compile (car ee) i env))))
+
 (define (output-header)
   (display "#include \"runtime.ll.h\"\n")
   (display "define void @scheme_main() {\n"))
@@ -217,16 +225,20 @@
   (display "ret void\n}\n")
   (display globals))
 
-(define (read-and-compile)
-  (output-header)
+(define (read-list)
   (let loop ()
     (let ((e (read)))
       (if (not (eof-object? e))
-	  (let ((r (compile e main-list initial-environment)))
-	    (display (format 
-		      "call %struct.Data* @display( %struct.Data* ~a ) \n"
-		      r))
-	    (loop))
-	  (output-footer)))))
+	  (cons e (loop))
+	  ()))))
+
+(define (read-and-compile)
+  (output-header)
+    (let ((ee (read-list)))
+      (let ((r (compile-list ee main-list initial-environment)))
+	(display (format 
+		  "call %struct.Data* @display( %struct.Data* ~a ) \n"
+		  r))))
+    (output-footer))
 
 (read-and-compile)
