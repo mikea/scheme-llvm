@@ -1,0 +1,105 @@
+TESTS = FileList["tests/*.scm"]
+TEST_RESULTS = TESTS.ext("ok")
+
+namespace :test do
+
+def process_test_file(f, &block)
+  puts "------- Testing #{f}\n"
+  content = File.read(f)
+  
+  test = ""
+  response = ""
+  content.each_line { |l|
+    if (l =~ /^;;\s*(.*)/)
+      expected = $1
+      
+      actual = block.call(test.strip)
+      
+      if (expected != actual)
+        print "\nERROR in #{f}\n"
+        print "EXPECTED: #{expected}\n"
+        print "ACTUAL  : #{actual}\n\n"
+        fail
+      elsif (actual == "<failure>")
+        print "don't worry, failure expected\n"
+      end
+      
+      test = ""
+    else 
+      test += l
+    end 
+  }
+end
+
+def run_test(test_data)
+  dir = "/tmp/scheme-llvm"
+  fin = dir + "/test.scm"
+  fll = dir + "/test.ll"
+  fbc = dir + "/test.bc"
+  fmain = dir + "/main.bc"
+  fout = dir + "/test.out"
+  
+  stream = open(fin, "w")
+  stream.write(test_data)
+  stream.close
+
+  sh "cat #{fin} | csi -s compile.scm | cpp -P > #{fll}"
+  sh "llvm-as -f -o #{fbc} #{fll}"
+  sh "llvm-link -f -o #{fmain} runtime.bc #{fbc}"
+
+  actual = ""
+  sh "lli #{fmain} > #{fout}" do |ok, res|
+    if ! ok
+      actual = "<failure>"
+    else
+      stream = open(fout)
+      actual = stream.read();
+      stream.close()
+    end
+  end
+  
+  actual
+end
+
+def verify_test(test_data)
+  test_data = "(display (begin " + test_data + "))"
+  
+  fin = Tempfile.new("scheme-llvm-test-in")
+  fout = Tempfile.new("scheme-llvm-test-out")
+  fin.write(test_data)
+  fin.close
+  
+  actual = ""
+  sh "csi -s #{fin.path} > #{fout.path}" do |ok, res|
+    if ! ok
+      actual = "<failure>"
+    else
+      actual = fout.read()
+    end
+  end
+  actual
+end
+
+TESTS.each do |f|
+  task "verify_#{f}" => f do
+    process_test_file(f) { |test_data|
+      verify_test(test_data)
+    }
+  end
+
+  task "run_#{f}" => [f, "verify_#{f}"] do
+    mkdir_p "/tmp/scheme-llvm"
+    process_test_file(f) { |test_data|
+      run_test(test_data)
+    }
+  end
+
+  task :all => "run_#{f}"
+end
+
+task :all do
+  print "\n----------\nTEST SUITE PASSED\n----------\n\n"
+end
+
+
+end
