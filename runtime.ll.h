@@ -15,6 +15,7 @@ declare DATA* @cdr(DATA* %d)
 declare DATA* @display(DATA* %d) 
 declare DATA* @string_to_symbol(i8* %str) 
 declare DATA* @get_env(DATA* %symbol) 
+declare void @llvm.memcpy.i32(i8* %dst, i8* %src, i32 %size, i32 %align)
 
 #endif
 

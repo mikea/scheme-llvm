@@ -106,7 +106,7 @@
 	 (body (caddr e))
 	 (proc-name (next-literal-var))
 	 (formals-definition (map (lambda (x) (format "DATA* %~a" x)) formals))
-	 (add-env (map (lambda (x) (cons x (format "%~a" x))) formals)))
+	 (add-env (map (lambda (x) (list x (format "%~a" x))) formals)))
     (gen-global "define DATA* ~a(~a) {; ~a" 
 		proc-name (string-join formals-definition ",") e)
     (let ((ret (compile body global-list (append add-env env))))
@@ -190,18 +190,56 @@
 (define (compile-define e i env)
   (error i "can't compile define: ~a" e))
 
+
+(define (gen-sizeof type i)
+  (let ((sz (next-local-var))
+	(szi (next-local-var)))
+    (gen-to-list i "; sizeof ~a" type)
+    (gen-to-list i "~a = getelementptr ~a* null, i32 1" sz type)
+    (gen-to-list i "~a = ptrtoint ~a* ~a to i32" szi type sz)
+    szi))
+
+;; compiles let definitions
+;; returns new environment
+(define (compile-let-defs defs i env)
+  (let loop ((d defs))
+    (if (null? d)
+	env
+	(let* ((def (car defs))
+	       (def-name (car def))
+	       (var (next-local-var))
+	       (val (compile (cadr def) i env))
+	       (val-addr (next-local-var))
+	       (var-addr (next-local-var))
+	       (data-sizeof (gen-sizeof "DATA" i)))
+	  (gen-to-list i "; init ~a" def-name)
+	  (gen-to-list i "~a = malloc DATA" var)
+	  (gen-to-list i "~a = bitcast DATA* ~a to i8*" val-addr val)
+	  (gen-to-list i "~a = bitcast DATA* ~a to i8*" var-addr var)
+	  (gen-to-list i "call void @llvm.memcpy.i32(i8* ~a, i8* ~a, i32 ~a, i32 0)"
+		       var-addr val-addr data-sizeof)
+	  (cons (list def-name var) (loop (cdr defs)))))))
+	
+
+(define (compile-let e i env)
+  (let* ((defs (cadr e))
+	 (body (cddr e))
+	 (new-env (compile-let-defs defs i env)))
+    (compile-list body i new-env)))
+
 (define (compile e i env)
+  (gen-to-list i "; compile ~a in ~a" e env)
   (let ((r (cond
 	    ((number? e) (compile-literal e main-list))
 	    ((pair? e)
 	     (cond
 	      ((eq? 'quote (car e)) (compile-literal (cadr e) main-list))
-	      ((eq? 'define (car e)) (compile-define (cadr e) main-list env))
+	      ((eq? 'let (car e)) (compile-let e main-list env))
 	      (#t (compile-call e i env))))
 	    (else 
 	     (let ((binding (assoc e env)))
 	       (if binding
-		   (cdr binding)
+		   (cadr binding)
 		   (error i "can't compile ~a in env: ~a" e env)))))))
     r))
 
