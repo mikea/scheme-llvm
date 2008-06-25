@@ -187,12 +187,16 @@
 	 (i e)
 	 (i "\n"))))
 
+(define (compile-define e i env)
+  (error i "can't compile define: ~a" e))
+
 (define (compile e i env)
   (let ((r (cond
 	    ((number? e) (compile-literal e main-list))
 	    ((pair? e)
 	     (cond
 	      ((eq? 'quote (car e)) (compile-literal (cadr e) main-list))
+	      ((eq? 'define (car e)) (compile-define (cadr e) main-list env))
 	      (#t (compile-call e i env))))
 	    (else 
 	     (let ((binding (assoc e env)))
