@@ -5,7 +5,7 @@
 (define local-var-num 0)
 (define globals "")
 (define global-init "")
-(define initial-environment '((car builtin) (cdr builtin)))
+(define initial-environment '((car "@car") (cdr "@cdr") (+ "@add")))
 (define symbols ())
 
 (define (next-local-var)
@@ -125,12 +125,10 @@
 	(let* ((symbol (car e))
 	      (binding (assoc symbol env)))
 	  (if binding
-	      (cond 
-	       ((eq? (cadr binding) 'builtin) 
-		(gen-to-list i "~a = call DATA* @~a(~a); call ~a" 
-			     var symbol arglist symbol)
+	      (begin
+      		(gen-to-list i "~a = call DATA* ~a(~a); call ~a" 
+			     var (cadr binding) arglist symbol)
 		var)
-	       (else (error i "Can't compile ~a :  ~a" symbol binding)))
 	      (error i "~a symbol not found" symbol)))
 	(if (eq? 'lambda (caar e))
 	    ;; compile lambda
@@ -205,7 +203,7 @@
   (let loop ((d defs))
     (if (null? d)
 	env
-	(let* ((def (car defs))
+	(let* ((def (car d))
 	       (def-name (car def))
 	       (var (next-local-var))
 	       (val (compile (cadr def) i env))
@@ -218,7 +216,7 @@
 	  (gen-to-list i "~a = bitcast DATA* ~a to i8*" var-addr var)
 	  (gen-to-list i "call void @llvm.memcpy.i32(i8* ~a, i8* ~a, i32 ~a, i32 0)"
 		       var-addr val-addr data-sizeof)
-	  (cons (list def-name var) (loop (cdr defs)))))))
+	  (cons (list def-name var) (loop (cdr d)))))))
 	
 
 (define (compile-let e i env)

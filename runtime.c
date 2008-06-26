@@ -16,9 +16,9 @@ typedef struct {
 } Cons;
 
 #define CHECK(b) assert(b)
-#define CHECK_IS_CONS(d) CHECK(d->type == T_CONS)
-#define CHECK_IS_INT(d) CHECK(d->type == T_INT)
-#define CHECK_IS_SYMBOL(d) CHECK(d->type == T_SYMBOL)
+#define CHECK_IS_CONS(d) CHECK(d && d->type == T_CONS)
+#define CHECK_IS_INT(d) CHECK(d && d->type == T_INT)
+#define CHECK_IS_SYMBOL(d) CHECK(d && d->type == T_SYMBOL)
 
 #define CONS(d) ((Cons*)(d->data))
 #define CHARP(d) ((char*)(d->data))
@@ -40,6 +40,17 @@ Data* cdr(Data* d) {
   }
   CHECK_IS_CONS(d);
   return CONS(d)->cdr;
+}
+
+Data* add(Data* d1, Data* d2) {
+  CHECK_IS_INT(d1);
+  CHECK_IS_INT(d2);
+
+  int i = INT(d1) + INT(d2);
+  Data* result = malloc(sizeof(Data));
+  result->type = T_INT;
+  result->data = (void*)i;
+  return result;
 }
 
 Data* display(Data* d);

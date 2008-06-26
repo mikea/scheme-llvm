@@ -12,6 +12,10 @@ CONS = type { DATA*, DATA* }
 
 declare DATA* @car(DATA* %d)
 declare DATA* @cdr(DATA* %d) 
+
+declare DATA* @add(DATA* %d1, DATA* %d2)
+
+
 declare DATA* @display(DATA* %d) 
 declare DATA* @string_to_symbol(i8* %str) 
 declare DATA* @get_env(DATA* %symbol) 
