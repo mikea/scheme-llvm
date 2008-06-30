@@ -101,6 +101,12 @@
 	     result-var res-ptr-var-load)
 	result-var))))
 
+(define (ptr-to-type d)
+  (format "getelementptr (DATA* ~a, i32 0, i32 1)" d))
+
+(define (ptr-to-data d)
+  (format "getelementptr (DATA* ~a, i32 0, i32 0)" d))
+
 (define (compile-lambda e i env)
   (let* ((formals (cadr e))
 	 (body (caddr e))
@@ -111,8 +117,26 @@
 		proc-name (string-join formals-definition ",") e)
     (let ((ret (compile body global-list (append add-env env))))
       (gen-global "ret DATA* ~a" ret)
-      (gen-global "}"))
-    proc-name))
+      (gen-global "}")
+      (let* ((var-data (next-literal-var))
+	     (var-lambda (next-literal-var))
+	     (args-type (map (lambda (x) (format "DATA*" x)) formals))
+	     (function-type (format "DATA* (~a)*" (string-join args-type ", ")))
+	     (lambda-ptr (next-local-var)))
+	(gen-global "~a = internal constant DATA zeroinitializer; ~a" var-data e)
+	(gen-global "~a = internal constant LAMBDA zeroinitializer; ~a" var-lambda e)
+	(gen-global-init "; init ~a" e)
+	(gen-global-init "store i8 T_LAMBDA, i8* ~a" 
+			 (ptr-to-type var-data))
+	(gen-global-init "store i8* bitcast (LAMBDA* ~a to i8*), i8** ~a"
+			 var-lambda (ptr-to-data var-data))
+	(gen-global-init "store i32 ~a, i32* getelementptr (LAMBDA* ~a, i32 0, i32 0)"
+			 (length formals) var-lambda)
+	(gen-global-init "~a = bitcast ~a ~a to i8*" 
+			 lambda-ptr function-type proc-name)
+	(gen-global-init "store i8* ~a, i8** getelementptr (LAMBDA* ~a, i32 0, i32 1)"
+			 lambda-ptr var-lambda)
+	var-data))))
 
 (define (compile-call e i env)
   (let* ((args (map (lambda (e1) (compile e1 i env)) (cdr e)))
@@ -133,8 +157,8 @@
 	(if (eq? 'lambda (caar e))
 	    ;; compile lambda
 	    (let ((lambda-var (compile-lambda (car e) i env)))
-	      (gen-to-list i "~a = call DATA* ~a(~a)" 
-			   var lambda-var arglist)
+	      (gen-to-list i "~a = call DATA* @call~a(DATA* ~a, ~a)" 
+			   var (length args) lambda-var arglist)
 	      var)
 	    (error i "Can't compile call: ~a" e)))))
 
@@ -256,10 +280,10 @@
 (define (output-footer)
   (display "ret void\n")
   (display "}\n")
+  (display globals)
   (display "define void @scheme_init() {\n")
   (display global-init)
-  (display "ret void\n}\n")
-  (display globals))
+  (display "ret void\n}\n"))
 
 (define (read-list)
   (let loop ()

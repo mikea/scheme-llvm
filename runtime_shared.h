@@ -7,5 +7,6 @@
 #define T_INT 4 
 #define T_CHAR 5
 #define T_BUILTIN 6
+#define T_LAMBDA 7
 
 #endif
