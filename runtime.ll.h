@@ -12,10 +12,9 @@ DATA = type { i8*, i8 }
 CONS = type { DATA*, DATA* }
 LAMBDA = type { i32, i8* }
 
-declare DATA* @car(DATA* %d)
-declare DATA* @cdr(DATA* %d) 
-
-declare DATA* @add(DATA* %d1, DATA* %d2)
+@car = external global DATA
+@cdr = external global DATA
+@add = external global DATA
 
 
 declare DATA* @display(DATA* %d) 

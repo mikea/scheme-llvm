@@ -5,6 +5,7 @@
 (define local-var-num 0)
 (define globals "")
 (define global-init "")
+(define global-def "")
 (define initial-environment '((car "@car") (cdr "@cdr") (+ "@add")))
 (define symbols ())
 
@@ -22,8 +23,14 @@
 (define (add-global-init s)
   (set! global-init (string-append global-init s "\n")))
 
+(define (add-global-def s)
+  (set! global-def (string-append global-def s "\n")))
+
 (define (gen-global-init . params)
   (add-global-init (apply format params)))
+
+(define (gen-global-def . params)
+  (add-global-def (apply format params)))
 
 (define (gen-global . params)
   (add-global (apply format params)))
@@ -53,11 +60,9 @@
 
 (define (compile-number-literal e i)
   (let ((var-name (next-literal-var)))
-    (add-global 
-     (format 
-      "~a = internal constant DATA {i8* inttoptr (i32 ~a to i8*), i8 T_INT};" 
-	      var-name
-	      e))
+    (gen-global-def 
+     "~a = internal constant DATA {i8* inttoptr (i32 ~a to i8*), i8 T_INT}; ~a " 
+     var-name e e)
     var-name))
 
 (define (compile-symbol e i)
@@ -82,8 +87,8 @@
 	     (result-var (next-local-var))
 	     (array-len (+ (string-length str) 1)))
 	(set! symbols (cons (list e var-name) symbols))
-	(gen-global "~a = internal constant DATA* zeroinitializer; ~a" var-name e)
-	(gen-global "~a = internal constant [~a x i8] c\"~a\\00\""
+	(gen-global-def "~a = internal constant DATA* zeroinitializer; ~a" var-name e)
+	(gen-global-def "~a = internal constant [~a x i8] c\"~a\\00\""
 		    var-str array-len str)
 	(gen-global-init "; init ~a" e)
 	(gen-global-init "~A = getelementptr [~a x i8]* ~a, i64 0, i64 0" 
@@ -123,8 +128,8 @@
 	     (args-type (map (lambda (x) (format "DATA*" x)) formals))
 	     (function-type (format "DATA* (~a)*" (string-join args-type ", ")))
 	     (lambda-ptr (next-local-var)))
-	(gen-global "~a = internal constant DATA zeroinitializer; ~a" var-data e)
-	(gen-global "~a = internal constant LAMBDA zeroinitializer; ~a" var-lambda e)
+	(gen-global-def "~a = internal constant DATA zeroinitializer; ~a" var-data e)
+	(gen-global-def "~a = internal constant LAMBDA zeroinitializer; ~a" var-lambda e)
 	(gen-global-init "; init ~a" e)
 	(gen-global-init "store i8 T_LAMBDA, i8* ~a" 
 			 (ptr-to-type var-data))
@@ -139,29 +144,16 @@
 	var-data))))
 
 (define (compile-call e i env)
-  (let* ((args (map (lambda (e1) (compile e1 i env)) (cdr e)))
-	(args-with-types 
-	 (map (lambda (s) (string-append "DATA* " s)) args))
-	(var (next-local-var))
-	(arglist (string-join args-with-types ", ")))
-    (if (symbol? (car e))
-	;; compile call
-	(let* ((symbol (car e))
-	      (binding (assoc symbol env)))
-	  (if binding
-	      (begin
-      		(gen-to-list i "~a = call DATA* ~a(~a); call ~a" 
-			     var (cadr binding) arglist symbol)
-		var)
-	      (error i "~a symbol not found" symbol)))
-	(if (eq? 'lambda (caar e))
-	    ;; compile lambda
-	    (let ((lambda-var (compile-lambda (car e) i env)))
-	      (gen-to-list i "~a = call DATA* @call~a(DATA* ~a, ~a)" 
-			   var (length args) lambda-var arglist)
-	      var)
-	    (error i "Can't compile call: ~a" e)))))
-
+  (let* ((val (compile (car e) i env))
+	 (args (map (lambda (e1) (compile e1 i env)) (cdr e)))
+	 (args-with-types 
+	  (map (lambda (s) (string-append "DATA* " s)) args))
+	 (var (next-local-var))
+	 (arglist (string-join args-with-types ", ")))
+    (gen-to-list i "~a = call DATA* @call~a(DATA* ~a, ~a)" 
+		 var (length args) val arglist)
+    var))
+	
 (define (compile-pair-literal e i)
   (let ((var-name (next-literal-var))
 	(h (compile-literal (car e) global-init-list))
@@ -172,8 +164,8 @@
 	(casted-value-var (next-local-var))
 	(car-addr-var (next-local-var))
 	(cdr-addr-var (next-local-var)))
-    (gen-global "~a = internal constant DATA zeroinitializer; ~a" var-name e)
-    (gen-global "~a = internal constant CONS zeroinitializer" cons-var)
+    (gen-global-def "~a = internal constant DATA zeroinitializer; ~a" var-name e)
+    (gen-global-def "~a = internal constant CONS zeroinitializer" cons-var)
 
     ;; Init DATA cell with pointer to CONS
     (gen-global-init "; init ~a" e)
@@ -257,6 +249,7 @@
 	     (cond
 	      ((eq? 'quote (car e)) (compile-literal (cadr e) main-list))
 	      ((eq? 'let (car e)) (compile-let e main-list env))
+	      ((eq? 'lambda (car e)) (compile-lambda e main-list env))
 	      (#t (compile-call e i env))))
 	    (else 
 	     (let ((binding (assoc e env)))
@@ -281,6 +274,7 @@
   (display "ret void\n")
   (display "}\n")
   (display globals)
+  (display global-def)
   (display "define void @scheme_init() {\n")
   (display global-init)
   (display "ret void\n}\n"))

@@ -43,7 +43,7 @@ typedef Data* (*proc9)(Data*, Data*, Data*, Data*, Data*, Data*, Data*, Data*, D
 #define CHECK_IS_SYMBOL(d) CHECK(d && d->type == T_SYMBOL)
 #define CHECK_IS_LAMBDA(d, a) CHECK(d && d->type == T_LAMBDA && LAMBDA(d)->arity == a)
 
-Data* car(Data* d) {
+Data* _car(Data* d) {
   if (!d) {
     fprintf(stderr, "ERROR: calling (car ())\n");
     exit(2);
@@ -52,7 +52,7 @@ Data* car(Data* d) {
   return CONS(d)->car;
 }
 
-Data* cdr(Data* d) {
+Data* _cdr(Data* d) {
   if (!d) {
     fprintf(stderr, "ERROR: calling (cdr ())\n");
     exit(2);
@@ -61,7 +61,7 @@ Data* cdr(Data* d) {
   return CONS(d)->cdr;
 }
 
-Data* add(Data* d1, Data* d2) {
+Data* _add(Data* d1, Data* d2) {
   CHECK_IS_INT(d1);
   CHECK_IS_INT(d2);
 
@@ -71,6 +71,15 @@ Data* add(Data* d1, Data* d2) {
   result->data = (void*)i;
   return result;
 }
+
+Lambda lcar = {1, _car};
+Data car = {&lcar, T_LAMBDA};
+
+Lambda lcdr = {1, _cdr};
+Data cdr = {&lcdr, T_LAMBDA};
+
+Lambda ladd = {2, _add};
+Data add = {&ladd, T_LAMBDA};
 
 Data* display(Data* d);
 
@@ -87,13 +96,13 @@ void display_symbol(Data* d) {
 void display_cons(Data* d) {
   CHECK_IS_CONS(d);
   printf("(");
-  display(car(d));
-  Data* t = cdr(d);
+  display(_car(d));
+  Data* t = _cdr(d);
   while (t) {
     if (t->type == T_CONS) {
       printf(" ");
-      display(car(t));
-      t = cdr(t);
+      display(_car(t));
+      t = _cdr(t);
     }
     else {
       printf(" . ");
