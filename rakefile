@@ -24,6 +24,7 @@ end
 task :unit_test do
   sh "csi -b parser-lib-tests.scm"
   sh "csi -b scheme-parser-tests.scm"
+  sh "csi -b lower-tests.scm"
 end
 
 task :runtime => "runtime.bc"

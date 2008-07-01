@@ -1,4 +1,5 @@
 (load "scheme-parser.scm")
+(load "lower.scm")
 (require-extension srfi-13)
 
 (define literal-var-num 0)
@@ -288,8 +289,10 @@
 
 (define (read-and-compile)
   (output-header)
-    (let ((ee (read-list)))
-      (let ((r (compile-list ee main-list initial-environment)))
+    (let* ((ee (read-list))
+	   (lee (lower ee)))
+      (display (format "; ~a\n" lee))
+      (let ((r (compile-list lee main-list initial-environment)))
 	(display (format 
 		  "call %struct.Data* @display( %struct.Data* ~a ) \n"
 		  r))))
