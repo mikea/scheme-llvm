@@ -2,10 +2,19 @@
 ;; is acceptable by compiler
 
 (define (lower-define e t)
-  (let ((var (cadr e))
-	(value (caddr e)))
-    `((let ((,var ,value))
-	,@(lower t)))))
+  (if (pair? (cadr e))
+      ; (define (<var> <formals>) body)
+      (let ((var (caadr e))
+	    (formals (cdadr e))
+	    (body (caddr e)))
+	(lower-define 
+	 `(define ,var (lambda (,@formals) ,body))
+	 t))
+      ; (define <var> <expr>)
+      (let ((var (cadr e))
+	    (expr (caddr e)))
+	`((let ((,var ,expr))
+	    ,@(lower t))))))
 
 (define (lower-expr e t)
   (define (loop e t)

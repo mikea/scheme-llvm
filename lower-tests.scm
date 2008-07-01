@@ -8,7 +8,11 @@
 (test-group "define"
 	    (test '((let ((x 5)) x))
 		  (lower '((define x 5) 
-			   x))))
+			   x)))
+	    (test '((let ((f (lambda (x) (+ 1 x)))) (f 5)))
+		  (lower '((define (f x) (+ 1 x))
+			   (f 5))))
+)
 	     
 
 (test-exit)
