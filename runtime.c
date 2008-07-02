@@ -187,22 +187,16 @@ Data* call9(Data* d, Data* p1, Data* p2, Data* p3, Data* p4, Data* p5, Data* p6,
   return ((proc9)(PROC(d)))(p1, p2, p3, p4, p5, p6, p7, p8, p9);
 }
 
-Data* symbols;
+char** symbols;
 int symbols_size;
 int symbols_count;
 
-void init_symbols() {
-  symbols_size = 100;
-  symbols = malloc(sizeof(Data) * symbols_size);
-  memset(symbols, 0, sizeof(Data) * symbols_size);
-  symbols_count = 0;
-}
-
-Data* string_to_symbol(char* str) {
+void init_symbol(char* str, Data* data) {
   int i;
   for (i = 0; i < symbols_count; i++) {
-    if (!strcmp(str, (char*)symbols[i].data)) {
-      return &symbols[i];
+    if (!strcmp(str, symbols[i])) {
+      data->data = symbols[i];
+      return;
     }
   }
 
@@ -210,22 +204,29 @@ Data* string_to_symbol(char* str) {
 
   if (symbols_count == symbols_size) {
     // reallocate
-    Data* old = symbols;
-    symbols = malloc(sizeof(Data) * symbols_size * 2);
-    memset(symbols, 0, sizeof(Data) * symbols_size * 2);
-    memcpy(symbols, old, sizeof(Data) * symbols_size);
+    char** old = symbols;
+    symbols = malloc(sizeof(char*) * symbols_size * 2);
+    memset(symbols, 0, sizeof(char*) * symbols_size * 2);
+    memcpy(symbols, old, sizeof(char*) * symbols_size);
     symbols_size *= 2;
   }
 
-  Data *d = &symbols[symbols_count];
+  char** s = &symbols[symbols_count];
   symbols_count++;
 
-  d->type = T_SYMBOL;
   int len = strlen(str);
-  d->data = malloc(len + 1);
-  memcpy(d->data, str, len + 1);
-  return d;
+  *s = malloc(len + 1);
+  memcpy(*s, str, len + 1);
+  data->data = *s;
 }
+
+void init_symbols() {
+  symbols_size = 100;
+  symbols = malloc(sizeof(char*) * symbols_size);
+  memset(symbols, 0, sizeof(char*) * symbols_size);
+  symbols_count = 0;
+}
+
 
 void scheme_main(void);
 void scheme_init(void);

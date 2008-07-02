@@ -4,7 +4,7 @@ TEST_RESULTS = TESTS.ext("ok")
 namespace :test do
 
 def process_test_file(f, &block)
-  puts "------- Testing #{f}\n"
+  puts "------- Testing #{f} (test:run_#{f})\n"
   content = File.read(f)
   
   test = ""

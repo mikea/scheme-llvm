@@ -69,15 +69,8 @@
 (define (compile-symbol e i)
   (let ((p (assoc e symbols)))
   (if p 
-      (let* ((var-name (cadr p))
-	     (res-ptr-var-load (next-local-var))
-	     (result-var (next-local-var)))
-	(gen-to-list i "; load ~a" e)
-	(gen-to-list i "~a = getelementptr DATA** ~a, i64 0; ~a"
-		     res-ptr-var-load var-name e)
-	(gen-to-list i "~a = load DATA** ~a"
-		     result-var res-ptr-var-load)
-	result-var)
+      (let* ((var-name (cadr p)))
+	var-name)
       (let* ((var-name (next-literal-var))
 	     (var-str (next-literal-var))
 	     (str (symbol->string e))
@@ -88,30 +81,15 @@
 	     (result-var (next-local-var))
 	     (array-len (+ (string-length str) 1)))
 	(set! symbols (cons (list e var-name) symbols))
-	(gen-global-def "~a = internal constant DATA* zeroinitializer; ~a" var-name e)
+	(gen-global-def "~a = internal constant DATA  {i8* inttoptr (i32 0 to i8*), i8 T_SYMBOL}; ~a" var-name e)
 	(gen-global-def "~a = internal constant [~a x i8] c\"~a\\00\""
 		    var-str array-len str)
 	(gen-global-init "; init ~a" e)
 	(gen-global-init "~A = getelementptr [~a x i8]* ~a, i64 0, i64 0" 
 			 str-ptr-var array-len var-str)
-	(gen-global-init "~a = call DATA* @string_to_symbol(i8* ~a)" 
-			 call-res-var str-ptr-var)
-	(gen-global-init "~a = getelementptr DATA** ~a, i64 0"
-			 res-ptr-var var-name)
-	(gen-global-init "store DATA* ~a, DATA** ~a"
-			 call-res-var res-ptr-var)
-	(gen-to-list i "; load ~a" e)
-	(gen-to-list i "~a = getelementptr DATA** ~a, i64 0; ~a"
-	     res-ptr-var-load var-name e)
-	(gen-to-list i "~a = load DATA** ~a"
-	     result-var res-ptr-var-load)
-	result-var))))
-
-(define (ptr-to-type d)
-  (format "getelementptr (DATA* ~a, i32 0, i32 1)" d))
-
-(define (ptr-to-data d)
-  (format "getelementptr (DATA* ~a, i32 0, i32 0)" d))
+	(gen-global-init "call void @init_symbol(i8* ~a, DATA* ~a)" 
+			 str-ptr-var var-name)
+	var-name))))
 
 (define (compile-lambda e i env)
   (let* ((formals (cadr e))
@@ -128,20 +106,12 @@
 	     (var-lambda (next-literal-var))
 	     (args-type (map (lambda (x) (format "DATA*" x)) formals))
 	     (function-type (format "DATA* (~a)*" (string-join args-type ", ")))
-	     (lambda-ptr (next-local-var)))
-	(gen-global-def "~a = internal constant DATA zeroinitializer; ~a" var-data e)
-	(gen-global-def "~a = internal constant LAMBDA zeroinitializer; ~a" var-lambda e)
-	(gen-global-init "; init ~a" e)
-	(gen-global-init "store i8 T_LAMBDA, i8* ~a" 
-			 (ptr-to-type var-data))
-	(gen-global-init "store i8* bitcast (LAMBDA* ~a to i8*), i8** ~a"
-			 var-lambda (ptr-to-data var-data))
-	(gen-global-init "store i32 ~a, i32* getelementptr (LAMBDA* ~a, i32 0, i32 0)"
-			 (length formals) var-lambda)
-	(gen-global-init "~a = bitcast ~a ~a to i8*" 
-			 lambda-ptr function-type proc-name)
-	(gen-global-init "store i8* ~a, i8** getelementptr (LAMBDA* ~a, i32 0, i32 1)"
-			 lambda-ptr var-lambda)
+	     (function-cast (format "bitcast (~a ~a to i8*)" 
+				    function-type proc-name)))
+	(gen-global-def "~a = internal constant DATA {i8* bitcast (LAMBDA* ~a to i8*), i8 T_LAMBDA}; ~a" 
+			var-data var-lambda e)
+	(gen-global-def "~a = internal constant LAMBDA {i32 ~a, i8* ~a}; ~a" 
+			var-lambda (length formals) function-cast e)
 	var-data))))
 
 (define (compile-call e i env)
@@ -165,31 +135,9 @@
 	(casted-value-var (next-local-var))
 	(car-addr-var (next-local-var))
 	(cdr-addr-var (next-local-var)))
-    (gen-global-def "~a = internal constant DATA zeroinitializer; ~a" var-name e)
-    (gen-global-def "~a = internal constant CONS zeroinitializer" cons-var)
-
-    ;; Init DATA cell with pointer to CONS
-    (gen-global-init "; init ~a" e)
-    (gen-global-init  "~a = getelementptr DATA* ~a, i32 0, i32 0"
-		      data-addr-var var-name)
-    (gen-global-init "~a = bitcast CONS* ~a to i8*"
-		     casted-value-var cons-var);
-    (gen-global-init "store i8* ~a, i8* * ~a"
-		     casted-value-var data-addr-var)
-    (gen-global-init "~a = getelementptr DATA* ~a, i32 0, i32 1"
-		     type-addr-var var-name)
-    (gen-global-init "store i8 T_CONS, i8* ~a"
-		     type-addr-var)
-
-    ;; Setup CAR & CDR in CONS cell
-    (gen-global-init "~a = getelementptr CONS* ~a, i32 0, i32 0; car"
-		     car-addr-var cons-var)
-    (gen-global-init "store DATA* ~a, DATA* * ~a"
-		     h car-addr-var)
-    (gen-global-init "~a = getelementptr CONS* ~a, i32 0, i32 1; cdr"
-		     cdr-addr-var cons-var)
-    (gen-global-init "store DATA* ~a, DATA* * ~a"
-		     t cdr-addr-var)
+    (gen-global-def "~a = internal constant DATA {i8* bitcast (CONS* ~a to i8*), i8 T_CONS}; ~a" 
+		    var-name cons-var e)
+    (gen-global-def "~a = internal constant CONS {DATA* ~a, DATA* ~a}" cons-var h t)
     var-name))
 
 (define (compile-literal e i)

@@ -18,7 +18,7 @@ LAMBDA = type { i32, i8* }
 
 
 declare DATA* @display(DATA* %d) 
-declare DATA* @string_to_symbol(i8* %str) 
+declare void @init_symbol(i8* %str, DATA* %data)
 declare DATA* @get_env(DATA* %symbol) 
 declare void @llvm.memcpy.i32(i8* %dst, i8* %src, i32 %size, i32 %align)
 
