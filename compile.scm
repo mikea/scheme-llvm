@@ -8,7 +8,7 @@
 (define global-init "")
 (define global-def "")
 (define initial-environment '((car "@car") (cdr "@cdr") (+ "@add")))
-(define symbols ())
+(define symbols '())
 
 (define (next-local-var)
   (set! local-var-num (+ local-var-num 1))
@@ -232,8 +232,9 @@
   (let loop ()
     (let ((e (read)))
       (if (not (eof-object? e))
-	  (cons e (loop))
-	  ()))))
+	  			(cons e (loop))
+	        '()
+					))))
 
 (define (read-and-compile)
   (output-header)

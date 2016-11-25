@@ -1,4 +1,4 @@
-(require-extension syntax-case)
+;; (require-extension syntax-case)
 
 (use test)
 (load "scheme-parser.scm")

@@ -1,4 +1,4 @@
-(require-extension syntax-case)
+;; (require-extension syntax-case)
 (require-extension srfi-1)
 
 (load "parser-lib.scm")
@@ -21,7 +21,7 @@
       (char=? #\~ c)))
 
 (define (initial? c)
-  (or (letter? c) (special-initial? c)))
+  (or (char-alphabetic? c) (special-initial? c)))
 
 (define (special-subsequent? c)
   (or (char=? #\+ c)
@@ -31,7 +31,7 @@
 
 (define (subsequent? c)
   (or (initial? c)
-      (digit? c)
+      (char-numeric? c)
       (special-subsequent? c)))
 
 (define (whitespace? c)

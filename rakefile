@@ -1,5 +1,4 @@
 require 'rake'
-require 'rake/contrib/sys'
 require 'tempfile'
 require 'rake/clean'
 require 'fileutils'
@@ -9,16 +8,14 @@ load 'tests/rakefile'
 CLEAN.include("*.bc")
 CLEAN.include("*.ll")
 
-llvmgcc="llvm-gcc-4.2"
-
-rule ".ll" => ".c" do |t|
-  sh "#{llvmgcc} -S -emit-llvm -o #{t.name} #{t.source}"
+rule ".bc" => ".c" do |t|
+  sh "clang -c -emit-llvm -o #{t.name} #{t.source}"
 end
 
-rule ".bc" => ".ll" do |t|
-  sh "llvm-as -f -o #{t.name} #{t.source}"
-  sh "opt -f -std-compile-opts -o #{t.name} #{t.name}"
-end
+# rule ".bc" => ".ll" do |t|
+#   sh "llvm-as -f -o #{t.name} #{t.source}"
+#   sh "opt -f -std-compile-opts -o #{t.name} #{t.name}"
+# end
 
 
 task :unit_test do
